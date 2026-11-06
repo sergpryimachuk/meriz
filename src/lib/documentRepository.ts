@@ -2,7 +2,7 @@ import { t } from "../i18n/runtime"
 import type { DocumentMeta, DocumentOrigin, OpenedDocument } from '../model/document'
 import { documentOrigin, emptyEditorState } from '../model/document'
 import type { McdEditorState } from '../model/mcdReducer'
-import { DEFAULT_MPD_SETTINGS } from '../model/mpd'
+import { instanceMpdSettings } from './defaultTarget'
 import type { MpdSettings } from '../model/mpd'
 import type { ApiClient, ApiError, Outcome } from './apiClient'
 import { apiError } from './apiClient'
@@ -284,7 +284,7 @@ function fromContent(meta: DocumentMeta, content: string): OpenedDocument | null
   if (!parsed.ok) {
     return null
   }
-  return { meta, state: parsed.state, mpdSettings: parsed.mpdSettings ?? DEFAULT_MPD_SETTINGS }
+  return { meta, state: parsed.state, mpdSettings: parsed.mpdSettings ?? instanceMpdSettings() }
 }
 
 /** Réécrit le nom inscrit dans le contenu (copie, récupération). */
@@ -639,7 +639,7 @@ export function createCloudRepository({
       })
     },
 
-    create: async (name, state = emptyEditorState(), mpdSettings = DEFAULT_MPD_SETTINGS) => {
+    create: async (name, state = emptyEditorState(), mpdSettings = instanceMpdSettings()) => {
       if (!isCurrent()) return fail(STALE_ACCOUNT())
       const created = await createCloudDocument(client, {
         name,

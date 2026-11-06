@@ -20,10 +20,10 @@ export function hasEntity(table: SchemaTable): boolean {
   return table.carriedColumns.length > 0
 }
 
-export function symfonyFiles(schema: CodeSchema, dialect: SqlDialect): GeneratedFile[] {
+export function symfonyFiles(schema: CodeSchema, dialect: SqlDialect, version?: string): GeneratedFile[] {
   const entities = schema.tables.filter(hasEntity).map((table) => symfonyEntityFile(table, schema, dialect))
   if (entities.length === 0) {
     return []
   }
-  return [...entities, symfonyMigrationFile(schema, dialect)]
+  return [...entities, symfonyMigrationFile(schema, dialect, version)]
 }

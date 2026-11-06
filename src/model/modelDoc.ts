@@ -443,16 +443,21 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
   }
   const layoutMap = doc.getMap<Position>('layout')
   const physicalMap = doc.getMap<string | boolean>('physical')
+  // Une entrée par type personnalisé : deux créations simultanées ne s'écrasent pas.
+  const customTypesMap = doc.getMap<string>('customTypes')
   const placements = doc.getMap<string | null>('placements')
   function readPhysical() {
     const dialect = physicalMap.get('dialect')
     if (!dialect) return undefined
-    const overrides: Record<string, string> = {}, identity: Record<string, boolean> = {}
+    const overrides: Record<string, string> = {}, identity: Record<string, boolean> = {}, defaults: Record<string, string> = {}
     for (const [key, value] of physicalMap) {
       if (key.startsWith('type:') && typeof value === 'string') overrides[key.slice(5)] = value
       if (key.startsWith('identity:') && typeof value === 'boolean') identity[key.slice(9)] = value
+      if (key.startsWith('default:') && typeof value === 'string') defaults[key.slice(8)] = value
     }
-    return parseMpdSettings({ dialect, overrides, identity }) ?? undefined
+    const customTypes: Record<string, unknown> = {}
+    for (const [id, json] of customTypesMap) { try { customTypes[id] = JSON.parse(json) } catch { /* entrée illisible : écartée */ } }
+    return parseMpdSettings({ dialect, version: physicalMap.get('version'), overrides, identity, defaults, customTypes }) ?? undefined
   }
   function normalizedMcd() {
     const mcd = readMcd(roots), used = new Set<string>()
@@ -481,15 +486,20 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
     reconcileLayout(layoutMap, state.layout)
     if (state.mpd) {
       const values = new Map<string, string | boolean>([['dialect', state.mpd.dialect]])
+      if (state.mpd.version) values.set('version', state.mpd.version)
       for (const [id, value] of Object.entries(state.mpd.overrides)) values.set('type:' + id, value)
       for (const [id, value] of Object.entries(state.mpd.identity ?? {})) values.set('identity:' + id, value)
+      for (const [id, value] of Object.entries(state.mpd.defaults ?? {})) values.set('default:' + id, value)
       for (const key of physicalMap.keys()) if (!values.has(key)) physicalMap.delete(key)
       for (const [key, value] of values) if (physicalMap.get(key) !== value) physicalMap.set(key, value)
+      const types = state.mpd.customTypes ?? {}
+      for (const id of customTypesMap.keys()) if (!(id in types)) customTypesMap.delete(id)
+      for (const [id, type] of Object.entries(types)) { const json = JSON.stringify(type); if (customTypesMap.get(id) !== json) customTypesMap.set(id, json) }
     }
   }
 
   const undoManager = new Y.UndoManager(
-    [roots.properties, roots.entities, roots.associations, layoutMap, physicalMap, placements],
+    [roots.properties, roots.entities, roots.associations, layoutMap, physicalMap, customTypesMap, placements],
     {
       trackedOrigins: new Set([LOCAL_ORIGIN]),
       captureTimeout: MERGE_WINDOW_MS,
@@ -521,6 +531,7 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
     changed = true
   })
   physicalMap.observe(() => { physicalDirty = true; changed = true })
+  customTypesMap.observe(() => { physicalDirty = true; changed = true })
   placements.observe(() => { mcdDirty = true; changed = true })
   // Une transaction, un avertissement : les observateurs se contentent
   // de marquer ce qui a bougé.

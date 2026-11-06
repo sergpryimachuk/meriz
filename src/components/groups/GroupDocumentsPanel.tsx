@@ -8,7 +8,7 @@ import { createGroupDocument, listGroupDocuments } from '../../lib/groupsApi'
 import type { GroupDetail, GroupDocument } from '../../lib/groupsApi'
 import { serializeModel } from '../../lib/persistence'
 import { emptyEditorState } from '../../model/document'
-import { DEFAULT_MPD_SETTINGS } from '../../model/mpd'
+import { instanceMpdSettings } from '../../lib/defaultTarget'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { GROUP_PROVENANCE } from '../documentProvenance'
 import { DocumentRow } from '../DocumentRow'
@@ -70,7 +70,7 @@ export function GroupDocumentsPanel({ client, group, onOpenGroupDocument, onStat
     const name = nextName(documents ?? [])
     const result = await createGroupDocument(client, group.id, {
       name,
-      content: serializeModel(emptyEditorState(), DEFAULT_MPD_SETTINGS, name),
+      content: serializeModel(emptyEditorState(), instanceMpdSettings(), name),
     })
     setCreating(false)
     if (!result.ok) {

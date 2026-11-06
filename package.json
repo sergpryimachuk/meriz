@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "tauri": "tauri",
-    "test:release": "node --test scripts/release-version.checks.mjs"
+    "test:release": "node --test scripts/release-version.checks.mjs",
+    "test:sql": "sh scripts/sql-matrix.sh"
   },
   "dependencies": {
     "@radix-ui/react-select": "2.4.1",

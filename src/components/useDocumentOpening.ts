@@ -12,7 +12,7 @@ import type { DocumentRepository } from '../lib/documentRepository'
 import { importModelFile } from '../lib/importFile'
 import { parseModelFile } from '../lib/persistence'
 import { builtInExample } from '../i18n/builtInExample'
-import { DEFAULT_MPD_SETTINGS } from '../model/mpd'
+import { instanceMpdSettings } from '../lib/defaultTarget'
 import type { MpdSettings } from '../model/mpd'
 import type { McdEditorState } from '../model/mcdReducer'
 import type { OpenedDocument } from '../model/document'
@@ -203,7 +203,7 @@ export function useDocumentOpening({
           updatedAt: new Date().toISOString(),
         },
         state: parsed && parsed.ok ? parsed.state : emptyEditorState(),
-        mpdSettings: (parsed && parsed.ok ? parsed.mpdSettings : null) ?? DEFAULT_MPD_SETTINGS,
+        mpdSettings: (parsed && parsed.ok ? parsed.mpdSettings : null) ?? instanceMpdSettings(),
       }
       const saver = createAssignmentSaver({
         client: account.client,
@@ -244,7 +244,7 @@ export function useDocumentOpening({
       const document: OpenedDocument = {
         meta: { id: model.key, name: model.name, createdAt: now, updatedAt: now },
         state: parsed.ok ? parsed.state : emptyEditorState(),
-        mpdSettings: (parsed.ok ? parsed.mpdSettings : null) ?? DEFAULT_MPD_SETTINGS,
+        mpdSettings: (parsed.ok ? parsed.mpdSettings : null) ?? instanceMpdSettings(),
       }
       // Point de départ de l'observation : ce contenu est déjà à l'écran.
       lastLiveContent.current = model.live ? model.content : null
@@ -288,7 +288,7 @@ export function useDocumentOpening({
       const document: OpenedDocument = {
         meta: { id: `${model.documentId}:coedit`, name: model.name, createdAt: now, updatedAt: now },
         state: emptyEditorState(),
-        mpdSettings: DEFAULT_MPD_SETTINGS,
+        mpdSettings: instanceMpdSettings(),
       }
       lastLiveContent.current = null
       clearAnnouncement()

@@ -1,0 +1,49 @@
+# Serveurs de test pour le SQL généré. Ne fait pas partie de l'image publiée.
+# Lancement : npm run test:sql, ou scripts/sql-matrix.sh mysql-8.4 postgresql-17
+# Chaque service est démarré, testé puis supprimé à son tour.
+# Le nom d'un service est la cible Meriz : moteur-version.
+
+x-mysql: &mysql
+  environment:
+    MYSQL_ROOT_PASSWORD: meriz
+  healthcheck:
+    test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pmeriz --silent"]
+    interval: 2s
+    retries: 90
+  tmpfs: /var/lib/mysql
+
+x-mariadb: &mariadb
+  environment:
+    MARIADB_ROOT_PASSWORD: meriz
+  healthcheck:
+    test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -pmeriz --silent"]
+    interval: 2s
+    retries: 90
+  tmpfs: /var/lib/mysql
+
+x-postgresql: &postgresql
+  environment:
+    POSTGRES_PASSWORD: meriz
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+    interval: 2s
+    retries: 90
+  # Un seul point de montage, comme le demande l'image PostgreSQL 18.
+  tmpfs: /var/lib/postgresql
+
+services:
+  # MySQL 5.7 n'existe qu'en amd64.
+  mysql-5.7: { <<: *mysql, image: "mysql:5.7", platform: linux/amd64 }
+  mysql-8.0: { <<: *mysql, image: "mysql:8.0" }
+  mysql-8.4: { <<: *mysql, image: "mysql:8.4" }
+  mysql-9: { <<: *mysql, image: "mysql:9" }
+  mariadb-10.6: { <<: *mariadb, image: "mariadb:10.6" }
+  mariadb-10.11: { <<: *mariadb, image: "mariadb:10.11" }
+  mariadb-11.4: { <<: *mariadb, image: "mariadb:11.4" }
+  mariadb-11.8: { <<: *mariadb, image: "mariadb:11.8" }
+  mariadb-12.3: { <<: *mariadb, image: "mariadb:12.3" }
+  postgresql-14: { <<: *postgresql, image: "postgres:14" }
+  postgresql-15: { <<: *postgresql, image: "postgres:15" }
+  postgresql-16: { <<: *postgresql, image: "postgres:16" }
+  postgresql-17: { <<: *postgresql, image: "postgres:17" }
+  postgresql-18: { <<: *postgresql, image: "postgres:18" }

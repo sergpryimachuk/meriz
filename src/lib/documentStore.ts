@@ -2,7 +2,7 @@ import { t } from "../i18n/runtime"
 import type { DocumentMeta, OpenedDocument } from '../model/document'
 import { emptyEditorState } from '../model/document'
 import type { McdEditorState } from '../model/mcdReducer'
-import { DEFAULT_MPD_SETTINGS } from '../model/mpd'
+import { instanceMpdSettings } from './defaultTarget'
 import type { MpdSettings } from '../model/mpd'
 import { parseModelFile, parseMpdSettings, serializeModel } from './persistence'
 import { newId } from './id'
@@ -167,7 +167,7 @@ export function createDocumentStore(storage: StorageLike, options: StoreOptions 
   const createDocument: DocumentStore['createDocument'] = (
     name,
     state = emptyEditorState(),
-    mpdSettings = DEFAULT_MPD_SETTINGS,
+    mpdSettings = instanceMpdSettings(),
   ) => {
     const timestamp = now()
     const meta: DocumentMeta = { id: createId(), name, createdAt: timestamp, updatedAt: timestamp }
@@ -193,7 +193,7 @@ export function createDocumentStore(storage: StorageLike, options: StoreOptions 
     if (!parsed.ok) {
       return null
     }
-    return { meta, state: parsed.state, mpdSettings: parsed.mpdSettings ?? DEFAULT_MPD_SETTINGS }
+    return { meta, state: parsed.state, mpdSettings: parsed.mpdSettings ?? instanceMpdSettings() }
   }
 
   const updateMeta = (id: string, patch: Partial<DocumentMeta>): DocumentMeta | null => {
@@ -294,7 +294,7 @@ export function createDocumentStore(storage: StorageLike, options: StoreOptions 
       const meta = createDocument(
         t(MIGRATED_DOCUMENT_NAME),
         parsed.state,
-        parsed.mpdSettings ?? legacySettings ?? DEFAULT_MPD_SETTINGS,
+        parsed.mpdSettings ?? legacySettings ?? instanceMpdSettings(),
       )
       if (meta) {
         remove(LEGACY_AUTOSAVE_KEY)

@@ -1,4 +1,5 @@
 import { blueprintColumn } from './frameworkSqlTypes'
+import { checkSql } from './customTypes'
 import { t } from '../i18n/runtime'
 import type { CodeSchema, SchemaColumn, SchemaTable } from './codeSchema'
 import type { GeneratedFile } from './codegenTypes'
@@ -56,7 +57,11 @@ export function laravelMigrationFile(table: SchemaTable, schema: CodeSchema, ind
   const primary = table.primaryKey.length === 1 ? table.primaryKey[0] : undefined
   const auto = primary?.autoIncrement && !primary.foreignKey ? primary : undefined
   for (const column of table.columns) {
-    if (column.overridden) lines.push(t('// Type imposé au MPD : {0}', [column.sqlType]))
+    if (column.customType) {
+      lines.push(t('// Type personnalisé {0} : {1}', [column.customType.name, column.sqlType]))
+      // Laravel n'écrit pas de CHECK : le contrôle reste à ajouter à la main.
+      if (column.customType.check) lines.push(t('// Contrôle à ajouter : CHECK ({0})', [checkSql(column.customType.check, column.columnName)]))
+    } else if (column.overridden) lines.push(t('// Type imposé au MPD : {0}', [column.sqlType]))
     lines.push(`${blueprintColumn(column)}${column === auto ? '->autoIncrement()' : column.nullable ? '->nullable()' : ''};`)
   }
   if (withTimestamps) {

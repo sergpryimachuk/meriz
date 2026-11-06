@@ -8,7 +8,7 @@ import { getCloudDocument, updateCloudDocument } from '../../lib/documentsApi'
 import { formatDate } from '../../lib/formatDate'
 import { getLastObservedAt } from '../../lib/liveApi'
 import { emptyEditorState } from '../../model/document'
-import { DEFAULT_MPD_SETTINGS } from '../../model/mpd'
+import { instanceMpdSettings } from '../../lib/defaultTarget'
 import { parseModelFile, serializeModel } from '../../lib/persistence'
 import { formatSubmittedAt, getMySubmission, submitWork } from '../../lib/submissionsApi'
 import type { Submission } from '../../lib/submissionsApi'
@@ -128,7 +128,7 @@ export function StudentAssignmentView({
         return null
       }
       const content =
-        fallbackContent ?? serializeModel(emptyEditorState(), DEFAULT_MPD_SETTINGS, assignment.title)
+        fallbackContent ?? serializeModel(emptyEditorState(), instanceMpdSettings(), assignment.title)
       const written = await updateCloudDocument(client, work.document.id, { content })
       return written.ok ? null : written.error
     },

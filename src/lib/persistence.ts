@@ -12,6 +12,9 @@ import { ATTRIBUTE_TYPES } from '../model/mcd'
 import type { McdLayout, Position } from '../model/layout'
 import type { McdEditorState } from '../model/mcdReducer'
 import type { MpdSettings } from '../model/mpd'
+import { SQL_DIALECTS } from '../model/mpd'
+import { parseCustomTypes } from '../model/customTypes'
+import { isKnownVersion } from '../model/sqlCatalog'
 
 /**
  * Format de fichier Meriz : le modèle et ses positions, plus un champ
@@ -90,9 +93,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Contrôle de forme des réglages MPD : dialecte connu, surcharges texte. */
 export function parseMpdSettings(raw: unknown): MpdSettings | null {
-  if (!isRecord(raw) || (raw.dialect !== 'mysql' && raw.dialect !== 'postgresql')) {
+  if (!isRecord(raw) || !SQL_DIALECTS.some(dialect => dialect.id === raw.dialect)) {
     return null
   }
+  const dialect = SQL_DIALECTS.find(known => known.id === raw.dialect)!.id
   const overrides: Record<string, string> = {}
   if (isRecord(raw.overrides)) {
     for (const [key, value] of Object.entries(raw.overrides)) {
@@ -103,7 +107,13 @@ export function parseMpdSettings(raw: unknown): MpdSettings | null {
   }
   const identity: Record<string, boolean> = {}
   if (isRecord(raw.identity)) for (const [key, value] of Object.entries(raw.identity)) if (typeof value === 'boolean') identity[key] = value
-  return { dialect: raw.dialect, overrides, ...(Object.keys(identity).length ? { identity } : {}) }
+  // Une valeur par défaut inconnue reste lue : le MPD la signale au lieu de l'effacer.
+  const defaults: Record<string, string> = {}
+  if (isRecord(raw.defaults)) for (const [key, value] of Object.entries(raw.defaults)) if (typeof value === 'string' && /^[a-z0-9_]{1,40}$/.test(value)) defaults[key] = value
+  // Une version inconnue, par exemple d'une version future de Meriz, retombe sur le défaut du moteur.
+  const version = typeof raw.version === 'string' && isKnownVersion(dialect, raw.version) ? raw.version : undefined
+  const customTypes = parseCustomTypes(raw.customTypes)
+  return { dialect, ...(version ? { version } : {}), ...(Object.keys(customTypes).length ? { customTypes } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
 }
 
 function isAttributeType(value: unknown): boolean {

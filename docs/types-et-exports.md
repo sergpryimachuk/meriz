@@ -14,15 +14,38 @@ Les libellés restent les noms SQL, en français comme en anglais. L’orthograp
 
 | Famille | MySQL | PostgreSQL |
 |---|---|---|
-| Chaînes | VARCHAR, CHAR, TEXT | VARCHAR, CHAR, TEXT |
-| Entiers | INT, BIGINT, SMALLINT, TINYINT | INTEGER, BIGINT, SMALLINT |
+| Chaînes | VARCHAR, CHAR, TEXT, MEDIUMTEXT, LONGTEXT | VARCHAR, CHAR, TEXT |
+| Entiers | INT, BIGINT, MEDIUMINT, SMALLINT, TINYINT | INTEGER, BIGINT, SMALLINT |
 | Décimaux exacts | DECIMAL | NUMERIC |
 | Nombres approchés | FLOAT, DOUBLE | REAL, DOUBLE PRECISION |
 | Booléens | BOOLEAN | BOOLEAN |
-| Dates et heures | DATE, TIME, DATETIME, TIMESTAMP | DATE, TIME, TIMESTAMP, TIMESTAMP WITH TIME ZONE |
+| Dates et heures | DATE, TIME, DATETIME, TIMESTAMP, YEAR | DATE, TIME, TIME WITH TIME ZONE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL |
+| Identifiants | | UUID |
+| Réseau | | INET, CIDR, MACADDR |
 | Documents | JSON | JSON, JSONB |
-| Binaire | BLOB, VARBINARY | BYTEA |
-| Autres | ENUM | UUID |
+| Binaire | BLOB, BINARY, VARBINARY | BYTEA |
+| Autres | ENUM, SET, VECTOR (9.x) | |
+
+Le moteur se choisit avec sa version : MySQL 5.7, 8.0, 8.4 LTS ou 9.x, PostgreSQL 14 à 18. Un type apparu dans une version récente n'est proposé qu'à partir de celle-ci, par exemple VECTOR en MySQL 9. Avant de changer de moteur ou de version, Meriz montre les colonnes dont le type change et celles qui demandent une décision.
+
+MySQL n'a pas de type UUID. BINARY(16) ou CHAR(36) servent à le stocker.
+
+MariaDB 10.6, 10.11, 11.4, 11.8 et 12.3 reprend les types MySQL, avec ces écarts : UUID depuis 10.7, INET6, INET4 depuis 10.10, et VECTOR depuis 11.7. Le SQL suit la syntaxe MySQL.
+
+SQLite stocke par affinité. Deux modes sont proposés. En 3.37+ (STRICT), les tables refusent une valeur du mauvais type, et seuls INTEGER, REAL, TEXT, BLOB et ANY sont admis. En mode classique, NUMERIC s'ajoute et ANY disparaît. SQLite n'a ni booléen, ni date, ni UUID. Un booléen devient INTEGER avec CHECK (col IN (0, 1)). Une date devient TEXT au format ISO 8601, avec CURRENT_TIMESTAMP, CURRENT_DATE ou CURRENT_TIME par défaut. Un montant exact reste NUMERIC en mode classique, TEXT en STRICT. L'identifiant entier simple devient INTEGER PRIMARY KEY. Les clés étrangères sont écrites dans le CREATE TABLE, et le script commence par PRAGMA foreign_keys = ON.
+
+### Valeurs par défaut
+
+Certains types proposent une valeur par défaut calculée par la base. Le choix se fait dans une liste, jamais en saisissant du SQL.
+
+| Type | MySQL | PostgreSQL |
+|---|---|---|
+| UUID | | gen_random_uuid(), uuidv7() en 18 |
+| UUID, MariaDB | (UUID_v4()), (UUID_v7()), depuis 11.7 | |
+| DATETIME, TIMESTAMP | CURRENT_TIMESTAMP | CURRENT_TIMESTAMP |
+| DATE | (CURRENT_DATE), depuis MySQL 8.0.13, pas sous MariaDB | CURRENT_DATE |
+
+Une clé étrangère reprend le type de l'identifiant visé, pas sa valeur par défaut. Une valeur absente du moteur ou de la version choisie est signalée et bloque l'export. Doctrine ne compare pas ces valeurs : Meriz le signale pour le parcours automatique.
 
 Ce catalogue couvre les usages usuels sans exposer toutes les variantes d’un moteur. DECIMAL/NUMERIC conviennent aux montants exacts ; FLOAT/REAL/DOUBLE restent approchés. TEXT évite de choisir une longueur arbitraire pour un texte long ; VARCHAR garde une longueur explicite. JSONB, UUID et ENUM sont propres aux moteurs indiqués.
 
@@ -31,6 +54,14 @@ Les champs de paramètres proposent la longueur, la précision et les décimales
 Le MCD conserve ses sept catégories conceptuelles internes. Le choix SQL et ses paramètres sont dans les réglages MPD, indexés par identifiant stable, et enregistrés avec le document. Les clés étrangères héritent du type physique de l’identifiant référencé. Les anciens fichiers restent ouvrables ; une surcharge inconnue ou incompatible n’est pas remplacée sans avertissement.
 
 Changer de moteur adapte les noms correspondants, par exemple INT/INTEGER et DECIMAL/NUMERIC. Cela ne garantit pas l’équivalence de toutes les capacités ou plages de valeurs. Un type sans correspondance, par exemple ENUM vers PostgreSQL ou UUID vers MySQL, demande une décision explicite avant l’export. Les options incompatibles, comme UNSIGNED sous PostgreSQL, bloquent l’export concerné.
+
+### Types personnalisés
+
+L'onglet Types personnalisés du dictionnaire définit un type une fois, pour plusieurs propriétés. Un type a un nom, un type conceptuel, un type de base par moteur et, au choix, un contrôle : une liste de valeurs ou un intervalle numérique. Deux modèles s'ajoutent en un clic : email et montant. L'onglet n'apparaît pas en mode débutant.
+
+Le type se choisit ensuite dans le groupe Mes types du sélecteur. PostgreSQL le crée comme domaine, avec CREATE DOMAIN, et les colonnes l'utilisent par son nom. MySQL, MariaDB et SQLite recopient le type de base et le contrôle dans chaque colonne. Une clé étrangère reprend le type de l'identifiant visé. Un type sans base pour le moteur choisi est signalé et bloque l'export. Le supprimer rend ses propriétés au type proposé.
+
+Laravel écrit le type de base et laisse le contrôle en commentaire, à ajouter à la main. Doctrine le reprend dans la définition native de la colonne, et Meriz le signale pour le parcours automatique.
 
 ## Laravel
 
@@ -80,3 +111,10 @@ Les exports ont été exécutés avec Symfony 7.4, Doctrine ORM 3 et DBAL 4.3, n
 - Migrations fournies, chemins Symfony moderne et classique, création puis annulation de références circulaires sur les deux moteurs.
 
 Les commandes sont proposées à copier. Meriz n’accède pas à la base de données d’un projet et ne lance aucune migration à sa place.
+
+## Vérification du SQL sur de vrais serveurs
+
+`npm run test:sql` génère le SQL de chaque modèle de test pour chaque moteur et version, puis l'exécute deux fois sur une base vide. Les serveurs viennent de `compose.test.yaml`, un à la fois. SQLite tourne avec `sqlite3`. Il faut Docker. On peut viser quelques cibles : `sh scripts/sql-matrix.sh mysql-8.4 postgresql-17 sqlite`.
+
+En novembre 2026, les 150 scripts passent sous MySQL 8.0, 8.4 et 9, MariaDB 10.6, 10.11, 11.4, 11.8 et 12.3, PostgreSQL 14 à 18 et SQLite 3.54. Cela couvre les domaines PostgreSQL, uuidv7() en 18, UUID_v7() sous MariaDB et les tables STRICT. MySQL 5.7 n'a pas été exécuté, faute de machine amd64.
+

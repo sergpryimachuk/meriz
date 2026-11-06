@@ -2,7 +2,8 @@ import { quoteSqlName } from './sqlIdentifiers'
 import { t } from "../i18n/runtime"
 import type { CodeSchema } from './codeSchema'
 import type { GeneratedFile } from './codegenTypes'
-import { foreignConstraints, mpdToSql, sortForCreation } from './mpd'
+import { customDomains, foreignConstraints, mpdToSql, sortForCreation } from './mpd'
+import { usesMysqlSyntax } from './sqlCatalog'
 import type { SqlDialect } from './mpd'
 import { phpString } from './php'
 
@@ -28,12 +29,14 @@ function statements(sql: string): string[] {
     .filter((block) => block !== '')
 }
 
-export function symfonyMigrationFile(schema: CodeSchema, dialect: SqlDialect): GeneratedFile {
-  const up = statements(mpdToSql(schema.physicalTables, dialect, { includeDrops: false }))
+export function symfonyMigrationFile(schema: CodeSchema, dialect: SqlDialect, version?: string): GeneratedFile {
+  const up = statements(mpdToSql(schema.physicalTables, dialect, { includeDrops: false, version }))
+  // SQLite retire ses clés avec la table : pas d'ALTER TABLE.
   const down = [
-    ...foreignConstraints(schema.physicalTables).map(({ table, name }) =>
-      'ALTER TABLE ' + quoteSqlName(table.name, dialect) + (dialect === 'mysql' ? ' DROP FOREIGN KEY ' : ' DROP CONSTRAINT ') + quoteSqlName(name, dialect)),
+    ...(dialect === 'sqlite' ? [] : foreignConstraints(schema.physicalTables)).map(({ table, name }) =>
+      'ALTER TABLE ' + quoteSqlName(table.name, dialect) + (usesMysqlSyntax(dialect) ? ' DROP FOREIGN KEY ' : ' DROP CONSTRAINT ') + quoteSqlName(name, dialect)),
     ...sortForCreation(schema.physicalTables).reverse().map(table => 'DROP TABLE IF EXISTS ' + quoteSqlName(table.name, dialect)),
+    ...(dialect === 'postgresql' ? customDomains(schema.physicalTables) : []).map(domain => 'DROP DOMAIN IF EXISTS ' + quoteSqlName(domain.name, dialect)),
   ]
 
   const toSql = (lines: string[]): string =>

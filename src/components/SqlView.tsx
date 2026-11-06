@@ -7,7 +7,8 @@ import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { MpdTable, SqlDialect } from '../model/mpd'
 import { copyText } from '../lib/clipboard'
-import { mpdToSql, SQL_DIALECTS } from '../model/mpd'
+import { mpdToSql } from '../model/mpd'
+import { targetLabel } from '../model/sqlCatalog'
 import { saveFileAs } from '../lib/download'
 import { EmptyGeneration, ErrorsBanner } from './GenerationNotices'
 import { Button } from './ui/Button'
@@ -15,6 +16,7 @@ import { Button } from './ui/Button'
 interface SqlViewProps {
   tables: MpdTable[]
   dialect: SqlDialect
+  version?: string
   hasErrors: boolean
 }
 
@@ -38,23 +40,23 @@ function highlightSql(sql: string): ReactNode[] {
  * Vue SQL : le script dérivé du MPD (donc du MCD + mappage + dialecte),
  * en lecture seule. On modifie le modèle, jamais le texte.
  */
-export function SqlView({ tables, dialect, hasErrors }: SqlViewProps) {
+export function SqlView({ tables, dialect, version, hasErrors }: SqlViewProps) {
   useLanguage()
   const [includeDrops, setIncludeDrops] = useState(false)
   const setCopyStatus = useToast()
   const dropsId = useId()
 
-  const typeIssues = physicalSchemaIssues(tables, dialect)
+  const typeIssues = physicalSchemaIssues(tables, dialect, version)
   const sql = useMemo(
-    () => mpdToSql(tables, dialect, { includeDrops }),
-    [tables, dialect, includeDrops],
+    () => mpdToSql(tables, dialect, { includeDrops, version }),
+    [tables, dialect, includeDrops, version],
   )
 
   if (tables.length === 0) {
     return <EmptyGeneration viewName="SQL" />
   }
 
-  const dialectLabel = SQL_DIALECTS.find((d) => d.id === dialect)?.label ?? dialect
+  const dialectLabel = targetLabel(dialect, version)
 
   const handleCopy = async () => {
     const copied = await copyText(sql)

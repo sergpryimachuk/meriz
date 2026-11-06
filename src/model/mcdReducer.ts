@@ -1,6 +1,12 @@
-import { parseSqlType, conceptualTypeFor } from './sqlTypes'
+import { parseSqlType, conceptualTypeFor, sqlTypeForDialect } from './sqlTypes'
 import type { MpdSettings, SqlDialect } from './mpd'
 import { DEFAULT_MPD_SETTINGS } from './mpd'
+import { defaultsFor, resolveVersion } from './sqlCatalog'
+import { customBase, customIdOf, customRef } from './customTypes'
+import type { CustomSqlType } from './customTypes'
+
+const withoutKeys = <T>(record: Record<string, T> | undefined, keys: ReadonlySet<string>): Record<string, T> =>
+  Object.fromEntries(Object.entries(record ?? {}).filter(([key]) => !keys.has(key)))
 import { t } from "../i18n/runtime"
 import type {
   Association,
@@ -53,7 +59,14 @@ export type McdAction =
   | { type: 'RENAME_ENTITY'; id: string; name: string }
   | { type: 'RENAME_ASSOCIATION'; id: string; name: string }
   // Dictionnaire central : la propriété est définie une seule fois.
-  | { type: 'SET_DIALECT'; dialect: SqlDialect }
+  /** Change de moteur ; sans version, prend la version par défaut du nouveau moteur. */
+  | { type: 'SET_DIALECT'; dialect: SqlDialect; version?: string }
+  /** Valeur par défaut d'une colonne, id du catalogue ; null la retire. */
+  | { type: 'SET_COLUMN_DEFAULT'; propertyId: string; value: string | null }
+  /** Ajoute ou remplace un type personnalisé. */
+  | { type: 'SET_CUSTOM_TYPE'; customType: CustomSqlType }
+  /** Retire un type personnalisé ; ses propriétés reviennent au type proposé. */
+  | { type: 'DELETE_CUSTOM_TYPE'; id: string }
   | { type: 'SET_SQL_TYPE'; propertyId: string; value: string }
   | { type: 'SET_IDENTITY'; propertyId: string; value: boolean }
   | { type: 'MOVE_PROPERTY'; propertyId: string; ownerId: string | null; beforeId?: string }
@@ -149,15 +162,40 @@ function withLeg(
 
 function reduceModel(state: McdEditorState, action: McdAction): McdEditorState {
   switch (action.type) {
-    case 'SET_DIALECT': return { ...state, mpd: { ...(state.mpd ?? DEFAULT_MPD_SETTINGS), dialect: action.dialect } }
+    case 'SET_DIALECT': return { ...state, mpd: { ...(state.mpd ?? DEFAULT_MPD_SETTINGS), dialect: action.dialect, version: resolveVersion(action.dialect, action.version) } }
     case 'SET_SQL_TYPE': {
       const settings = state.mpd ?? DEFAULT_MPD_SETTINGS
       const overrides = { ...settings.overrides }
       if (action.value.trim()) overrides[action.propertyId] = action.value.trim()
       else delete overrides[action.propertyId]
-      const spec = parseSqlType(action.value)
-      const mcd = spec ? { ...state.mcd, properties: state.mcd.properties.map(p => p.id === action.propertyId ? { ...p, type: conceptualTypeFor(spec) } : p) } : state.mcd
-      return { ...state, mcd, mpd: { ...settings, overrides } }
+      const custom = settings.customTypes?.[customIdOf(action.value.trim()) ?? '']
+      const spec = custom ? customBase(custom, settings.dialect) : parseSqlType(action.value)
+      const conceptual = custom ? custom.conceptual : spec ? conceptualTypeFor(spec) : undefined
+      const mcd = conceptual ? { ...state.mcd, properties: state.mcd.properties.map(p => p.id === action.propertyId ? { ...p, type: conceptual } : p) } : state.mcd
+      // Un nouveau type qui ne propose plus la valeur par défaut choisie la perd.
+      const kept = settings.defaults?.[action.propertyId]
+      const translated = spec && sqlTypeForDialect(spec, settings.dialect)
+      const stale = kept !== undefined && !(translated && defaultsFor(settings.dialect, undefined, translated.name).some(option => option.id === kept))
+      return { ...state, mcd, mpd: { ...settings, overrides, ...(stale ? { defaults: withoutKeys(settings.defaults, new Set([action.propertyId])) } : {}) } }
+    }
+    case 'SET_CUSTOM_TYPE': {
+      const settings = state.mpd ?? DEFAULT_MPD_SETTINGS
+      const type = action.customType, ref = customRef(type.id)
+      // Les propriétés qui l'utilisent suivent son type conceptuel.
+      const users = new Set(Object.entries(settings.overrides).filter(([, value]) => value === ref).map(([id]) => id))
+      const mcd = { ...state.mcd, properties: state.mcd.properties.map(p => users.has(p.id) ? { ...p, type: type.conceptual } : p) }
+      return { ...state, mcd, mpd: { ...settings, customTypes: { ...settings.customTypes, [type.id]: type } } }
+    }
+    case 'DELETE_CUSTOM_TYPE': {
+      const settings = state.mpd ?? DEFAULT_MPD_SETTINGS
+      const ref = customRef(action.id)
+      const users = new Set(Object.entries(settings.overrides).filter(([, value]) => value === ref).map(([id]) => id))
+      return { ...state, mpd: { ...settings, customTypes: withoutKeys(settings.customTypes, new Set([action.id])), overrides: withoutKeys(settings.overrides, users), ...(settings.defaults ? { defaults: withoutKeys(settings.defaults, users) } : {}) } }
+    }
+    case 'SET_COLUMN_DEFAULT': {
+      const settings = state.mpd ?? DEFAULT_MPD_SETTINGS
+      const defaults = action.value === null ? withoutKeys(settings.defaults, new Set([action.propertyId])) : { ...settings.defaults, [action.propertyId]: action.value }
+      return { ...state, mpd: { ...settings, defaults } }
     }
     case 'SET_IDENTITY': return { ...state, mpd: { ...(state.mpd ?? DEFAULT_MPD_SETTINGS), identity: { ...state.mpd?.identity, [action.propertyId]: action.value } } }
     case 'MOVE_PROPERTY': {
@@ -268,7 +306,7 @@ function reduceModel(state: McdEditorState, action: McdAction): McdEditorState {
       const removed = new Set(entity.attributes.map(a => a.propertyId))
       const next = reduceModel(state, { type: 'DELETE_ENTITY', id: action.id })
       const settings = state.mpd
-      const mpd = settings ? { ...settings, overrides: Object.fromEntries(Object.entries(settings.overrides).filter(([id]) => !removed.has(id))), ...(settings.identity ? { identity: Object.fromEntries(Object.entries(settings.identity).filter(([id]) => !removed.has(id))) } : {}) } : undefined
+      const mpd = settings ? { ...settings, overrides: withoutKeys(settings.overrides, removed), ...(settings.identity ? { identity: withoutKeys(settings.identity, removed) } : {}), ...(settings.defaults ? { defaults: withoutKeys(settings.defaults, removed) } : {}) } : undefined
       return { ...next, mcd: { ...next.mcd, properties: next.mcd.properties.filter(p => !removed.has(p.id)) }, ...(mpd ? { mpd } : {}) }
     }
     case 'DELETE_ENTITY': {
