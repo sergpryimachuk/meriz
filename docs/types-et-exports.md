@@ -111,3 +111,10 @@ Les exports ont été exécutés avec Symfony 7.4, Doctrine ORM 3 et DBAL 4.3, n
 - Migrations fournies, chemins Symfony moderne et classique, création puis annulation de références circulaires sur les deux moteurs.
 
 Les commandes sont proposées à copier. Meriz n’accède pas à la base de données d’un projet et ne lance aucune migration à sa place.
+
+## Vérification du SQL sur de vrais serveurs
+
+`npm run test:sql` génère le SQL de chaque modèle de test pour chaque moteur et version, puis l'exécute deux fois sur une base vide. Les serveurs viennent de `compose.test.yaml`, un à la fois. SQLite tourne avec `sqlite3`. Il faut Docker. On peut viser quelques cibles : `sh scripts/sql-matrix.sh mysql-8.4 postgresql-17 sqlite`.
+
+En novembre 2026, les 150 scripts passent sous MySQL 8.0, 8.4 et 9, MariaDB 10.6, 10.11, 11.4, 11.8 et 12.3, PostgreSQL 14 à 18 et SQLite 3.54. Cela couvre les domaines PostgreSQL, uuidv7() en 18, UUID_v7() sous MariaDB et les tables STRICT. MySQL 5.7 n'a pas été exécuté, faute de machine amd64.
+

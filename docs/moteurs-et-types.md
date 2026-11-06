@@ -273,7 +273,7 @@ Chaque étape se livre seule, avec ses tests.
 4. **MariaDB.** Catalogue dérivé de MySQL, UUID natif selon la version, pilote Laravel `mariadb`.
 5. **SQLite.** Livré : mode STRICT ou classique, clés étrangères dans le CREATE TABLE, SQL exécuté sous SQLite 3.54. Catalogue, générateur avec clés en ligne, exports Laravel et Doctrine.
 6. **Types personnalisés.** Livré : modèle, onglet du dictionnaire, domaines PostgreSQL, contrôle recopié ailleurs, modèles email et montant.
-7. **Docker.** `MERIZ_DEFAULT_TARGET` et `compose.test.yaml`.
+7. **Docker.** Livré : `MERIZ_DEFAULT_TARGET`, `compose.test.yaml` et `npm run test:sql`. Le SQL de 16 cibles s'exécute sans erreur, MySQL 5.7 mis à part : son image n'existe qu'en amd64.
 
 ## Décisions prises
 

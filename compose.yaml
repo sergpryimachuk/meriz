@@ -19,6 +19,7 @@ services:
       MERIZ_REVERB_HOST: ${MERIZ_REVERB_HOST:-}
       MERIZ_REVERB_PORT: ${MERIZ_REVERB_PORT:-}
       MERIZ_REVERB_SCHEME: ${MERIZ_REVERB_SCHEME:-}
+      MERIZ_DEFAULT_TARGET: ${MERIZ_DEFAULT_TARGET:-}
     security_opt:
       - no-new-privileges:true
     cap_drop:

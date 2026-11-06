@@ -1,6 +1,6 @@
 import { t } from "../i18n/runtime"
 import type { McdEditorState } from '../model/mcdReducer'
-import { DEFAULT_MPD_SETTINGS } from '../model/mpd'
+import { instanceMpdSettings } from './defaultTarget'
 import type { MpdSettings } from '../model/mpd'
 import { nameFromFileName, parseModelFile } from './persistence'
 
@@ -28,6 +28,6 @@ export async function importModelFile(file: File): Promise<ImportResult> {
     ok: true,
     name: result.name ?? nameFromFileName(file.name),
     state: result.state,
-    mpdSettings: result.mpdSettings ?? DEFAULT_MPD_SETTINGS,
+    mpdSettings: result.mpdSettings ?? instanceMpdSettings(),
   }
 }

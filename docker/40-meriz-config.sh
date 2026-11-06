@@ -8,6 +8,8 @@
 #   MERIZ_REVERB_HOST       hôte du direct
 #   MERIZ_REVERB_PORT       port du direct
 #   MERIZ_REVERB_SCHEME     http ou https
+#   MERIZ_DEFAULT_TARGET    moteur des nouveaux documents, par exemple
+#                           postgresql@17, mariadb@11.8 ou sqlite
 # Une variable vide laisse la fonction désactivée. Sans MERIZ_API_URL,
 # Meriz marche sans compte et garde les documents dans le navigateur.
 set -eu
@@ -34,6 +36,16 @@ check_value MERIZ_REVERB_APP_KEY "${MERIZ_REVERB_APP_KEY:-}"
 check_value MERIZ_REVERB_HOST "${MERIZ_REVERB_HOST:-}"
 check_value MERIZ_REVERB_PORT "${MERIZ_REVERB_PORT:-}"
 check_value MERIZ_REVERB_SCHEME "${MERIZ_REVERB_SCHEME:-}"
+check_value MERIZ_DEFAULT_TARGET "${MERIZ_DEFAULT_TARGET:-}"
+
+# Moteur, puis version facultative. L'application vérifie que la version
+# existe et retombe sur MySQL sinon. Ici, on refuse une forme fausse.
+if [ -n "${MERIZ_DEFAULT_TARGET:-}" ]; then
+  if ! printf '%s' "$MERIZ_DEFAULT_TARGET" | grep -Eq '^(mysql|mariadb|postgresql|sqlite)(@[0-9]+(\.[0-9]+)*)?$'; then
+    echo "meriz: MERIZ_DEFAULT_TARGET doit ressembler à postgresql@17, mariadb@11.8 ou sqlite." >&2
+    exit 1
+  fi
+fi
 
 # Copie neuve du build : un redémarrage repart des marqueurs.
 rm -rf "${TARGET:?}"/*
@@ -47,8 +59,13 @@ grep -rl '__MERIZ_' "$TARGET" | while IFS= read -r file; do
     -e "s|__MERIZ_REVERB_HOST__|${MERIZ_REVERB_HOST:-}|g" \
     -e "s|__MERIZ_REVERB_PORT__|${MERIZ_REVERB_PORT:-}|g" \
     -e "s|__MERIZ_REVERB_SCHEME__|${MERIZ_REVERB_SCHEME:-}|g" \
+    -e "s|__MERIZ_DEFAULT_TARGET__|${MERIZ_DEFAULT_TARGET:-}|g" \
     "$file"
 done
+
+if [ -n "${MERIZ_DEFAULT_TARGET:-}" ]; then
+  echo "meriz: moteur des nouveaux documents : ${MERIZ_DEFAULT_TARGET}"
+fi
 
 if [ -n "${MERIZ_API_URL:-}" ]; then
   echo "meriz: comptes activés, serveur ${MERIZ_API_URL}"

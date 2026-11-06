@@ -430,5 +430,6 @@ export const englishExtras: Readonly<Record<string, string>> = {
   "Un autre type porte déjà ce nom.": "Another type already has this name.",
   "Un intervalle ne s’applique qu’à un nombre.": "A range only applies to a number.",
   "Un type personnalisé se définit une fois et sert à plusieurs propriétés. PostgreSQL le crée comme domaine. Les autres moteurs recopient son type de base et son contrôle dans chaque colonne.": "A custom type is defined once and used by several properties. PostgreSQL creates it as a domain. Other engines copy its base type and check into each column.",
-  "Utilisations": "Uses"
+  "Utilisations": "Uses",
+  "Meriz : VITE_DEFAULT_TARGET invalide ({0}). Moteur par défaut : MySQL.": "Meriz: invalid VITE_DEFAULT_TARGET ({0}). Default engine: MySQL."
 }

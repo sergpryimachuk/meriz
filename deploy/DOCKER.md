@@ -36,6 +36,7 @@ docker compose up -d
 | `MERIZ_REVERB_HOST` | Hôte du direct | vide |
 | `MERIZ_REVERB_PORT` | Port du direct | vide |
 | `MERIZ_REVERB_SCHEME` | `http` ou `https` | vide |
+| `MERIZ_DEFAULT_TARGET` | Moteur des nouveaux documents, par exemple `postgresql@17`, `mariadb@11.8` ou `sqlite`. Une forme fausse arrête le conteneur. Une version inconnue retombe sur MySQL. | vide, MySQL 8.4 |
 
 `MERIZ_API_URL` vide : les comptes sont désactivés. Réglages Reverb vides : l'observation garde son rafraîchissement régulier.
 
