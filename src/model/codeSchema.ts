@@ -1,4 +1,5 @@
 import { t } from "../i18n/runtime"
+import type { CustomTypeCheck } from './customTypes'
 import type { AttributeType, Mcd } from './mcd'
 import type { MldTable } from './mld'
 import { buildMpd } from './mpd'
@@ -82,6 +83,8 @@ export interface SchemaColumn {
   nullable: boolean
   /** SQL écrit après DEFAULT au MPD. */
   defaultSql?: string
+  /** Type personnalisé choisi au MPD ; `sqlType` porte son type de base. */
+  customType?: { name: string; check?: CustomTypeCheck }
   foreignKey?: { group: string; targetTableId: string; referencedColumn: string }
 }
 
@@ -168,6 +171,7 @@ export function buildCodeSchema(mcd: Mcd, tables: MldTable[], settings: MpdSetti
         autoIncrement: column.autoIncrement,
         nullable: column.nullable,
         ...(column.defaultSql ? { defaultSql: column.defaultSql } : {}),
+        ...(column.customType && !column.customType.unavailable ? { customType: { name: column.customType.name, ...(column.customType.check ? { check: column.customType.check } : {}) } } : {}),
       }
       const source = tables.find((candidate) => candidate.id === table.id)
       const mldColumn = source?.columns.find((candidate) => candidate.id === column.id)

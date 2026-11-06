@@ -7,6 +7,7 @@ import { usesMysqlSyntax } from './sqlCatalog'
 export function physicalSchemaIssues(tables: MpdTable[], dialect: SqlDialect, version?: string): string[] {
   const issues: string[] = []
   for (const table of tables) for (const column of table.columns) {
+    if (column.customType?.unavailable) { issues.push(t('Type personnalisé sans base pour ce moteur : {0}.{1} ({2}).', [table.name, column.name, column.customType.name])); continue }
     const spec = parseSqlType(column.sqlType)
     if (!spec || !sqlTypeForDialect(spec, dialect, version)) { issues.push(t('Type SQL incompatible ou invalide : {0}.{1} ({2}).', [table.name, column.name, column.sqlType])); continue }
     if (column.unavailableDefault) issues.push(t('Valeur par défaut indisponible dans ce moteur : {0}.{1} ({2}).', [table.name, column.name, column.unavailableDefault]))

@@ -55,6 +55,14 @@ Le MCD conserve ses sept catégories conceptuelles internes. Le choix SQL et ses
 
 Changer de moteur adapte les noms correspondants, par exemple INT/INTEGER et DECIMAL/NUMERIC. Cela ne garantit pas l’équivalence de toutes les capacités ou plages de valeurs. Un type sans correspondance, par exemple ENUM vers PostgreSQL ou UUID vers MySQL, demande une décision explicite avant l’export. Les options incompatibles, comme UNSIGNED sous PostgreSQL, bloquent l’export concerné.
 
+### Types personnalisés
+
+L'onglet Types personnalisés du dictionnaire définit un type une fois, pour plusieurs propriétés. Un type a un nom, un type conceptuel, un type de base par moteur et, au choix, un contrôle : une liste de valeurs ou un intervalle numérique. Deux modèles s'ajoutent en un clic : email et montant. L'onglet n'apparaît pas en mode débutant.
+
+Le type se choisit ensuite dans le groupe Mes types du sélecteur. PostgreSQL le crée comme domaine, avec CREATE DOMAIN, et les colonnes l'utilisent par son nom. MySQL, MariaDB et SQLite recopient le type de base et le contrôle dans chaque colonne. Une clé étrangère reprend le type de l'identifiant visé. Un type sans base pour le moteur choisi est signalé et bloque l'export. Le supprimer rend ses propriétés au type proposé.
+
+Laravel écrit le type de base et laisse le contrôle en commentaire, à ajouter à la main. Doctrine le reprend dans la définition native de la colonne, et Meriz le signale pour le parcours automatique.
+
 ## Laravel
 
 L’export contient les migrations et les modèles Eloquent. Les migrations portent les types et paramètres physiques choisis. Les clés étrangères visant une table créée plus tard sont reportées dans une migration finale.

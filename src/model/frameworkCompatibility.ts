@@ -7,7 +7,9 @@ import { usesMysqlSyntax } from './sqlCatalog'
 /** DBAL ne distingue pas ces types MySQL à l'introspection sans configuration dédiée. */
 export function doctrineCompatibilityWarnings(settings: MpdSettings, tables: MpdTable[]): string[] {
   const computed = tables.some(table => table.columns.some(column => column.defaultSql))
-  const general = computed ? [t('Doctrine ne compare pas les valeurs par défaut calculées, comme CURRENT_TIMESTAMP ou gen_random_uuid(). Pour le parcours automatique, retirez-les, ou utilisez la migration fournie par Meriz.')] : []
+  const checked = tables.some(table => table.columns.some(column => column.customType?.check))
+  const general = checked ? [t('Doctrine ne compare pas les contrôles CHECK des types personnalisés. Pour le parcours automatique, retirez le contrôle, ou utilisez la migration fournie par Meriz.')] : []
+  if (computed) general.push(t('Doctrine ne compare pas les valeurs par défaut calculées, comme CURRENT_TIMESTAMP ou gen_random_uuid(). Pour le parcours automatique, retirez-les, ou utilisez la migration fournie par Meriz.'))
   if (!usesMysqlSyntax(settings.dialect)) return general
   const names = new Set(tables.flatMap(table => table.columns.map(column => column.sqlType)).map(raw => parseSqlType(raw)?.name))
   const warnings: string[] = []

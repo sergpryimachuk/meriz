@@ -4,6 +4,7 @@ import type { SchemaColumn } from './codeSchema'
 import { phpString, phpStringList } from './php'
 import { t } from '../i18n/runtime'
 import { usesMysqlSyntax } from './sqlCatalog'
+import { checkSql } from './customTypes'
 
 export function columnSqlSpec(column: SchemaColumn) {
   const spec = parseSqlType(column.sqlType)
@@ -103,7 +104,9 @@ export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysq
   // Ces types natifs n'ont pas une correspondance portable univoque dans DBAL.
   // Une valeur par défaut calculée passe aussi par la définition native.
   // UUID natif de MariaDB : DBAL ne le distingue pas d'un GUID en CHAR(36).
-  if (NATIVE_DEFINITION.includes(spec.name) || column.defaultSql || (dialect === 'mariadb' && spec.name === 'UUID')) parameters.push(`columnDefinition: ${phpString(column.sqlType + (column.nullable ? '' : ' NOT NULL') + (column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''))}`)
+  // Le contrôle d'un type personnalisé passe aussi par la définition native.
+  const check = column.customType?.check ? ' CHECK (' + checkSql(column.customType.check, column.columnName) + ')' : ''
+  if (NATIVE_DEFINITION.includes(spec.name) || column.defaultSql || check || (dialect === 'mariadb' && spec.name === 'UUID')) parameters.push(`columnDefinition: ${phpString(column.sqlType + (column.nullable ? '' : ' NOT NULL') + (column.defaultSql ? ' DEFAULT ' + column.defaultSql : '') + check)}`)
   return { attribute: [`type: Types::${type}`, ...parameters].join(', '), phpType, needsTypes: true }
 }
 

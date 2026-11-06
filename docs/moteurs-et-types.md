@@ -188,9 +188,7 @@ export interface CustomSqlType {
   /** Type de base par moteur. Absent = type inutilisable sur ce moteur. */
   base: Partial<Record<SqlEngine, string>>   // 'VARCHAR(320)', 'BINARY(16)', 'CHAR(36)'
   /** Contrainte optionnelle, sous forme fermée, jamais du SQL libre. */
-  check?: { kind: 'values'; values: string[] } | { kind: 'range'; min?: number; max?: number } | { kind: 'length'; min: number }
-  /** Défaut optionnel, choisi dans la liste du type de base. */
-  defaultExpression?: string
+  check?: { kind: 'values'; values: string[] } | { kind: 'range'; min?: number; max?: number }
 }
 ```
 
@@ -202,7 +200,7 @@ Une surcharge référence un type personnalisé par son identifiant, avec un pr�
 
 | Moteur | Rendu |
 |---|---|
-| PostgreSQL | `CREATE DOMAIN email AS VARCHAR(320) CHECK (...)` en tête de script. Une liste de valeurs devient `CREATE TYPE ... AS ENUM`. Les colonnes utilisent le nom du type. |
+| PostgreSQL | `CREATE DOMAIN email AS VARCHAR(320) CHECK (...)` en tête de script, y compris pour une liste de valeurs : un domaine accepte n'importe quel type de base. Les colonnes utilisent le nom du type. |
 | MySQL, MariaDB | Le type de base est recopié dans la colonne, avec son CHECK (MySQL 8.0.16+, toutes les versions MariaDB listées). Une liste de valeurs devient `ENUM(...)`. |
 | SQLite | Type de base recopié, CHECK recopié. |
 
@@ -210,7 +208,7 @@ Ce choix suit chaque moteur. PostgreSQL a de vrais domaines. MySQL et SQLite n'e
 
 ### Modèles fournis
 
-Le panneau propose deux modèles à ajouter en un clic. Rien n'est ajouté sans action de l'utilisateur. Pas de modèle UUID : l'utilisateur choisit lui-même le stockage sur les moteurs sans UUID natif.
+Le contrôle de longueur minimale prévu au départ n'est pas livré. La valeur par défaut se choisit par colonne, d'après le type de base, et non dans le type. Le panneau propose deux modèles à ajouter en un clic. Rien n'est ajouté sans action de l'utilisateur. Pas de modèle UUID : l'utilisateur choisit lui-même le stockage sur les moteurs sans UUID natif.
 
 - `email` : `VARCHAR(320)` partout, `TEXT` sous SQLite.
 - `montant` : `DECIMAL(12,2)` ou `NUMERIC(12,2)`, CHECK `>= 0` optionnel.
@@ -274,7 +272,7 @@ Chaque étape se livre seule, avec ses tests.
 3. **Ajouts au catalogue et défauts de colonne.** Dont UUID natif PostgreSQL avec défaut.
 4. **MariaDB.** Catalogue dérivé de MySQL, UUID natif selon la version, pilote Laravel `mariadb`.
 5. **SQLite.** Livré : mode STRICT ou classique, clés étrangères dans le CREATE TABLE, SQL exécuté sous SQLite 3.54. Catalogue, générateur avec clés en ligne, exports Laravel et Doctrine.
-6. **Types personnalisés.** Modèle, onglet, rendu par moteur, modèles fournis.
+6. **Types personnalisés.** Livré : modèle, onglet du dictionnaire, domaines PostgreSQL, contrôle recopié ailleurs, modèles email et montant.
 7. **Docker.** `MERIZ_DEFAULT_TARGET` et `compose.test.yaml`.
 
 ## Décisions prises

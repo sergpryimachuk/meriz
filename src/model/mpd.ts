@@ -6,6 +6,8 @@ import type { AttributeType } from './mcd'
 import type { MldColumn, MldTable } from './mld'
 import { sanitizeSqlName } from './sql'
 import { catalogFor, defaultsFor, sqliteStrict, usesMysqlSyntax } from './sqlCatalog'
+import { checkSql, customBase, customIdOf } from './customTypes'
+import type { CustomSqlType, CustomTypeCheck } from './customTypes'
 
 /**
  * MPD : le modèle physique. Structure dérivée du MLD (jamais éditée),
@@ -32,6 +34,8 @@ export interface MpdSettings {
   identity?: Record<string, boolean>
   /** Valeur par défaut choisie par propriété : l'id d'un `ColumnDefault` du catalogue. */
   defaults?: Record<string, string>
+  /** Types personnalisés du document, par id. */
+  customTypes?: Record<string, CustomSqlType>
 }
 
 export const DEFAULT_MPD_SETTINGS: MpdSettings = { dialect: 'mysql', overrides: {} }
@@ -58,6 +62,11 @@ export interface MpdColumn {
   defaultSql?: string
   /** Valeur choisie mais absente du moteur ou de la version : à corriger avant l'export. */
   unavailableDefault?: string
+  /**
+   * Type personnalisé choisi. `sqlType` porte alors son type de base ;
+   * `unavailable` : pas de base pour ce moteur, `sqlType` porte son nom.
+   */
+  customType?: { id: string; name: string; check?: CustomTypeCheck; unavailable?: boolean }
   references?: MldColumn['references']
 }
 
@@ -81,9 +90,12 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
         const override = (settings.overrides[column.id] ?? settings.overrides[sourceId])?.trim()
         const overridden = override !== undefined && override !== ''
         const explicitIdentity = settings.identity?.[sourceId]
-        const parsed = parseSqlType(overridden ? override : proposed)
+        const custom = overridden ? settings.customTypes?.[customIdOf(override) ?? ''] : undefined
+        const customSpec = custom ? customBase(custom, settings.dialect) : null
+        const source = custom ? (customSpec ? formatSqlType(customSpec) : custom.name) : overridden ? override : proposed
+        const parsed = parseSqlType(source)
         const translated = parsed && sqlTypeForDialect(parsed, settings.dialect, settings.version)
-        const finalType = translated ? formatSqlType(translated) : overridden ? override : proposed
+        const finalType = translated ? formatSqlType(translated) : source
         const autoIncrement =
           column.isPrimaryKey &&
           primaryKeys.length === 1 &&
@@ -103,6 +115,7 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
           nullable: column.nullable,
           autoIncrement,
           ...(offered ? { defaultSql: offered.sql } : defaultId ? { unavailableDefault: defaultId } : {}),
+          ...(custom ? { customType: { id: custom.id, name: custom.name, ...(custom.check ? { check: custom.check } : {}), ...(customSpec ? {} : { unavailable: true }) } } : {}),
           references: column.references,
         }
       }),
@@ -170,15 +183,19 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
   const inlineKeys = sqlite ? foreignConstraints(tables) : []
   // Sans ce réglage, SQLite ignore les clés étrangères.
   if (sqlite) parts.push('PRAGMA foreign_keys = ON;')
+  // PostgreSQL a de vrais domaines. Ailleurs, le type de base et son contrôle sont recopiés dans la colonne.
+  const domains = dialect === 'postgresql' ? customDomains(tables) : []
 
   if (options.includeDrops) {
     parts.push(
       [...ordered]
         .reverse()
         .map((table) => ("DROP TABLE IF EXISTS " + String(quoteSqlName(table.name, dialect)) + ";"))
+        .concat(domains.map(domain => 'DROP DOMAIN IF EXISTS ' + quoteSqlName(domain.name, dialect) + ';'))
         .join('\n'),
     )
   }
+  if (domains.length) parts.push(domains.map(domain => 'CREATE DOMAIN ' + quoteSqlName(domain.name, dialect) + ' AS ' + domain.sqlType + (domain.check ? ' CHECK (' + checkSql(domain.check, 'VALUE') + ')' : '') + ';').join('\n'))
 
   for (const table of ordered) {
     const lines: string[] = []
@@ -187,7 +204,8 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
     for (const column of table.columns) {
       const name = quoteSqlName(column.name, dialect)
       if (column === rowid) { lines.push(`  ${name} INTEGER PRIMARY KEY`); continue }
-      let typePart = column.sqlType
+      const domain = dialect === 'postgresql' && column.customType && !column.customType.unavailable
+      let typePart = domain ? quoteSqlName(column.customType!.name, dialect) : column.sqlType
       if (column.autoIncrement && dialect === 'postgresql') {
         // SERIAL remplace le type et porte l'auto-incrément.
         typePart = column.sqlType === 'BIGINT' ? 'BIGSERIAL' : column.sqlType === 'SMALLINT' ? 'SMALLSERIAL' : 'SERIAL'
@@ -197,7 +215,11 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
       const nullability = column.nullable ? '' : ' NOT NULL'
       const defaultPart = column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''
       // SQLite n'a pas de booléen : l'entier est borné à 0 et 1.
-      const checkPart = sqlite && column.conceptualType === 'booleen' && column.sqlType === 'INTEGER' ? ` CHECK (${name} IN (0, 1))` : ''
+      const checks = [
+        sqlite && column.conceptualType === 'booleen' && column.sqlType === 'INTEGER' ? `${name} IN (0, 1)` : '',
+        !domain && column.customType?.check ? checkSql(column.customType.check, name) : '',
+      ].filter(Boolean)
+      const checkPart = checks.map(condition => ` CHECK (${condition})`).join('')
       lines.push(`  ${name} ${typePart}${nullability}${defaultPart}${autoIncrementPart}${checkPart}`)
     }
     const primaryKey = table.columns.filter((c) => c.isPrimaryKey)
@@ -218,6 +240,16 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
   }
 
   return parts.join('\n\n')
+}
+
+/** Domaines PostgreSQL des types personnalisés utilisés, une fois chacun, dans l'ordre d'apparition. */
+export function customDomains(tables: MpdTable[]): { name: string; sqlType: string; check?: CustomTypeCheck }[] {
+  const seen = new Map<string, { name: string; sqlType: string; check?: CustomTypeCheck }>()
+  for (const table of tables) for (const column of table.columns) {
+    const custom = column.customType
+    if (custom && !custom.unavailable && !seen.has(custom.id)) seen.set(custom.id, { name: custom.name, sqlType: column.sqlType, ...(custom.check ? { check: custom.check } : {}) })
+  }
+  return [...seen.values()]
 }
 
 /** CONSTRAINT nom FOREIGN KEY (...) REFERENCES cible (...), commun aux deux emplacements. */

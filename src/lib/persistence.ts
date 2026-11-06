@@ -13,6 +13,7 @@ import type { McdLayout, Position } from '../model/layout'
 import type { McdEditorState } from '../model/mcdReducer'
 import type { MpdSettings } from '../model/mpd'
 import { SQL_DIALECTS } from '../model/mpd'
+import { parseCustomTypes } from '../model/customTypes'
 import { isKnownVersion } from '../model/sqlCatalog'
 
 /**
@@ -111,7 +112,8 @@ export function parseMpdSettings(raw: unknown): MpdSettings | null {
   if (isRecord(raw.defaults)) for (const [key, value] of Object.entries(raw.defaults)) if (typeof value === 'string' && /^[a-z0-9_]{1,40}$/.test(value)) defaults[key] = value
   // Une version inconnue, par exemple d'une version future de Meriz, retombe sur le défaut du moteur.
   const version = typeof raw.version === 'string' && isKnownVersion(dialect, raw.version) ? raw.version : undefined
-  return { dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
+  const customTypes = parseCustomTypes(raw.customTypes)
+  return { dialect, ...(version ? { version } : {}), ...(Object.keys(customTypes).length ? { customTypes } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
 }
 
 function isAttributeType(value: unknown): boolean {

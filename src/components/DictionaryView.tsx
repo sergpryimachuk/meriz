@@ -14,10 +14,11 @@ import { Icon } from './ui/Icon'
 import { Segmented } from './ui/Segmented'
 import { useToast } from './ui/toastContext'
 import { SqlTypeControl } from './SqlTypeControl'
+import { CustomTypesView } from './CustomTypesView'
 import { useSqlTypes } from './sqlTypesContext'
 
 const DRAG_TYPE = 'application/x-meriz-property'
-type DictionaryTab = 'tables' | 'associations' | 'unplaced'
+type DictionaryTab = 'tables' | 'associations' | 'unplaced' | 'types'
 type Move = { propertyId: string; ownerId: string | null; beforeId?: string; sourceId: string | null }
 const cell = 'min-w-0 lg:px-3 lg:py-1.5 lg:align-middle'
 const control = 'min-h-8 min-w-0 max-w-full rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-xs hover:border-line-strong focus:border-line-strong'
@@ -27,6 +28,9 @@ export function DictionaryView({ mcd, dispatch, readOnly = false }: { mcd: Mcd; 
   const locale = useLanguage(), toast = useToast()
   const { settings, physicalType, beginner, requestTarget } = useSqlTypes()
   const [tab, setTab] = useState<DictionaryTab>('tables')
+  // L'onglet des types personnalisés n'existe pas en mode débutant.
+  const showTypes = tab === 'types' && !beginner
+  useEffect(() => { if (beginner && tab === 'types') setTab('tables') }, [beginner, tab])
   const [search, setSearch] = useState(''), [sort, setSort] = useState('placement')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [dropTarget, setDropTarget] = useState<string | null>(null)
@@ -101,15 +105,16 @@ export function DictionaryView({ mcd, dispatch, readOnly = false }: { mcd: Mcd; 
   return <section aria-label={t('Dictionnaire des données')} className="flex min-h-0 min-w-0 flex-1 flex-col">
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2">
       <Segmented<DictionaryTab> legend={t('Contenu du dictionnaire')} hideLegend size="sm" value={tab} onChange={setTab}
-        options={[{ value: 'tables', label: t('Tables') + ' (' + mcd.entities.length + ')' }, { value: 'associations', label: t('Associations') + ' (' + mcd.associations.filter(a => a.attributes.length).length + ')' }, { value: 'unplaced', label: t('Non affectées') + ' (' + groups[groups.length - 1]!.properties.length + ')' }]} />
+        options={[{ value: 'tables', label: t('Tables') + ' (' + mcd.entities.length + ')' }, { value: 'associations', label: t('Associations') + ' (' + mcd.associations.filter(a => a.attributes.length).length + ')' }, { value: 'unplaced', label: t('Non affectées') + ' (' + groups[groups.length - 1]!.properties.length + ')' }, ...(beginner ? [] : [{ value: 'types' as const, label: t('Types personnalisés') + ' (' + Object.keys(settings.customTypes ?? {}).length + ')' }])]} />
       {!readOnly && <Button size="sm" variant="ghost" onClick={() => add('')}><Icon name="plus" size={15} />{t('Ajouter une propriété')}</Button>}
     </div>
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2">
-      <label className="flex min-w-0 max-w-sm basis-48 flex-1 items-center gap-2 text-xs">{t('Rechercher')}<input type="search" value={search} onChange={e => setSearch(e.target.value)} className="min-h-8 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-2 py-1" /></label>
-      <label className="flex min-w-0 items-center gap-2 text-xs">{t('Trier')}<Select className={control + ' border-line-strong bg-surface'} value={sort} onValueChange={value => setSort(value)}><option value="placement">{t('Ordre du modèle')}</option><option value="name">{t('Nom')}</option><option value="type">{t('Type SQL')}</option></Select></label>
+      {!showTypes && <><label className="flex min-w-0 max-w-sm basis-48 flex-1 items-center gap-2 text-xs">{t('Rechercher')}<input type="search" value={search} onChange={e => setSearch(e.target.value)} className="min-h-8 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-2 py-1" /></label>
+      <label className="flex min-w-0 items-center gap-2 text-xs">{t('Trier')}<Select className={control + ' border-line-strong bg-surface'} value={sort} onValueChange={value => setSort(value)}><option value="placement">{t('Ordre du modèle')}</option><option value="name">{t('Nom')}</option><option value="type">{t('Type SQL')}</option></Select></label></>}
       {!beginner && <div className="min-w-0 lg:ml-auto"><EngineSelect dialect={settings.dialect} version={settings.version} disabled={readOnly || !requestTarget} onChange={(dialect, version) => requestTarget?.(dialect, version)} className={control + ' border-line-strong bg-surface'} /></div>}
     </div>
     <div className="min-h-0 min-w-0 flex-1 overflow-auto p-3 sm:p-4" data-dictionary-scroll>
+      {showTypes ? <CustomTypesView /> : <>
       {tab === 'associations' && <p className="mb-3 text-xs leading-relaxed text-ink-soft">{t('Propriétés portées par les associations. Les associations sans propriété et leurs liaisons restent dans le MCD.')}</p>}
       {visibleGroups.length === 0 ? <p className="p-3 text-sm text-ink-soft">{query ? t('Aucun résultat.') : tab === 'associations' ? t('Aucune propriété portée par une association.') : t('Aucune table. Ajoutez une entité dans le MCD.')}</p> :
       <table className="block w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-lg border border-line bg-surface text-sm lg:table">
@@ -165,6 +170,7 @@ export function DictionaryView({ mcd, dispatch, readOnly = false }: { mcd: Mcd; 
           </Fragment>
         })}
       </table>}
+      </>}
     </div>
     <ConfirmDialog open={!!pendingMove} title={t('Déplacer un identifiant')} message={t('Cette propriété participe à un identifiant. Son déplacement peut modifier les clés étrangères. Vers une association ou les propriétés non affectées, elle perdra ce rôle. Vérifiez ensuite le rapport.')} confirmLabel={t('Déplacer')} onCancel={() => setPendingMove(null)} onConfirm={() => { if (pendingMove) executeMove(pendingMove) }} />
     <ConfirmDialog open={!!pendingDelete} title={t('Propriété utilisée dans le MCD')} message={t('Retirer cette propriété du modèle et du dictionnaire ? Ctrl+Z permet d’annuler.')} confirmLabel={t('Oui, supprimer')} onCancel={() => setPendingDelete(null)} onConfirm={() => { if (!readOnly && pendingDelete) dispatch({ type: 'DELETE_PROPERTY', propertyId: pendingDelete.id }); setPendingDelete(null) }} />
