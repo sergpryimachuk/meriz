@@ -447,12 +447,13 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
   function readPhysical() {
     const dialect = physicalMap.get('dialect')
     if (!dialect) return undefined
-    const overrides: Record<string, string> = {}, identity: Record<string, boolean> = {}
+    const overrides: Record<string, string> = {}, identity: Record<string, boolean> = {}, defaults: Record<string, string> = {}
     for (const [key, value] of physicalMap) {
       if (key.startsWith('type:') && typeof value === 'string') overrides[key.slice(5)] = value
       if (key.startsWith('identity:') && typeof value === 'boolean') identity[key.slice(9)] = value
+      if (key.startsWith('default:') && typeof value === 'string') defaults[key.slice(8)] = value
     }
-    return parseMpdSettings({ dialect, version: physicalMap.get('version'), overrides, identity }) ?? undefined
+    return parseMpdSettings({ dialect, version: physicalMap.get('version'), overrides, identity, defaults }) ?? undefined
   }
   function normalizedMcd() {
     const mcd = readMcd(roots), used = new Set<string>()
@@ -484,6 +485,7 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
       if (state.mpd.version) values.set('version', state.mpd.version)
       for (const [id, value] of Object.entries(state.mpd.overrides)) values.set('type:' + id, value)
       for (const [id, value] of Object.entries(state.mpd.identity ?? {})) values.set('identity:' + id, value)
+      for (const [id, value] of Object.entries(state.mpd.defaults ?? {})) values.set('default:' + id, value)
       for (const key of physicalMap.keys()) if (!values.has(key)) physicalMap.delete(key)
       for (const [key, value] of values) if (physicalMap.get(key) !== value) physicalMap.set(key, value)
     }

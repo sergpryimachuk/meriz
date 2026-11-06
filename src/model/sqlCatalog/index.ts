@@ -1,9 +1,9 @@
 import type { SqlDialect } from '../mpd'
 import { MYSQL_CATALOG } from './mysql'
 import { POSTGRES_CATALOG } from './postgresql'
-import type { EngineCatalog, SqlTypeDefinition } from './types'
+import type { ColumnDefault, EngineCatalog, SqlTypeDefinition } from './types'
 
-export type { EngineCatalog, EngineVersion, SqlTypeDefinition, SqlTypeFamily, SqlTypeParameters } from './types'
+export type { ColumnDefault, EngineCatalog, EngineVersion, SqlTypeDefinition, SqlTypeFamily, SqlTypeParameters } from './types'
 export { MYSQL_TYPE_DEFINITIONS } from './mysql'
 export { POSTGRES_TYPE_DEFINITIONS } from './postgresql'
 
@@ -37,6 +37,17 @@ export function versionAtLeast(version: string, since: string): boolean {
 /** Le type existe dans cette version du moteur. */
 export const availableIn = (definition: SqlTypeDefinition, version: string): boolean =>
   definition.since === undefined || versionAtLeast(version, definition.since)
+
+/**
+ * Valeurs par défaut que le moteur propose pour ce type. Sans version,
+ * toutes celles du moteur, quelle que soit leur version d'apparition.
+ */
+export function defaultsFor(dialect: SqlDialect, version: string | undefined, name: string): readonly ColumnDefault[] {
+  const all = findSqlType(dialect, name)?.defaults ?? []
+  if (version === undefined) return all
+  const resolved = resolveVersion(dialect, version)
+  return all.filter(option => option.since === undefined || versionAtLeast(resolved, option.since))
+}
 
 /** Libellé lisible de la cible, par exemple « MySQL 8.4 LTS ». */
 export function targetLabel(dialect: SqlDialect, version: string | undefined): string {

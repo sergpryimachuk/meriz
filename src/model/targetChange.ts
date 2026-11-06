@@ -27,6 +27,7 @@ export function targetChangeImpact(tables: MldTable[], settings: MpdSettings, di
     const entry = { table: table.name, column: column.name, from, to: column.sqlType }
     const spec = parseSqlType(column.sqlType)
     if (!spec || !sqlTypeForDialect(spec, dialect, version)) impact.unresolved.push(entry)
+    else if (column.unavailableDefault) impact.unresolved.push({ ...entry, to: column.sqlType + ' DEFAULT ' + column.unavailableDefault })
     else if (from !== column.sqlType) impact.renamed.push(entry)
   }))
   return impact

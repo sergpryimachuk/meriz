@@ -1,7 +1,8 @@
 import { Select } from './ui/Select'
 import { useEffect, useState } from 'react'
 import type { Property } from '../model/mcd'
-import { acceptsUnsigned, defaultSqlSpec, formatSqlType, hasLength, hasPrecision, isCommonType, maxLength, parseSqlType, precisionLimits, sqlTypeForDialect, sqlTypeNames } from '../model/sqlTypes'
+import { defaultsFor } from '../model/sqlCatalog'
+import { acceptsUnsigned, defaultSqlSpec, formatSqlType, hasLength, hasPrecision, hasValues, isCommonType, maxLength, parseSqlType, precisionLimits, sqlTypeForDialect, sqlTypeNames } from '../model/sqlTypes'
 import type { SqlTypeSpec } from '../model/sqlTypes'
 import { useSqlTypes } from './sqlTypesContext'
 import { t } from '../i18n/runtime'
@@ -41,7 +42,11 @@ export function SqlTypeControl({ property, compact = false, part = 'all' }: {
         onBlur={() => { if (spec) apply({ ...spec, [key]: draft[key].trim() ? Number(draft[key]) : -1 }) }} />
     </label>
   const unsigned = !beginner && spec && acceptsUnsigned(spec.name, settings.dialect)
-  const parameters = spec && (hasLength(spec.name) || hasPrecision(spec.name) || spec.name === 'ENUM' || unsigned)
+  const defaultOptions = spec ? defaultsFor(settings.dialect, settings.version, spec.name) : []
+  const chosenDefault = settings.defaults?.[property.id]
+  const unavailableDefault = chosenDefault !== undefined && !defaultOptions.some(option => option.id === chosenDefault)
+  const showDefault = !beginner && (defaultOptions.length > 0 || chosenDefault !== undefined)
+  const parameters = spec && (hasLength(spec.name) || hasPrecision(spec.name) || hasValues(spec.name) || unsigned || showDefault)
   return <div className={part === 'all' ? 'flex min-w-0 flex-col gap-2' : 'flex min-w-0 flex-col gap-1'} data-sql-type={property.id} data-sql-part={part}>
     {part !== 'parameters' && <div className={part === 'all' ? 'flex min-w-0 flex-wrap items-center gap-2' : 'flex min-w-0 flex-wrap items-center gap-1'}>
       <Select value={spec?.name ?? raw} disabled={readOnly} aria-label={t('Type de la propriété {0}', [property.name])} className={field + (part === 'all' ? ' flex-1' : ' w-full')}
@@ -57,10 +62,20 @@ export function SqlTypeControl({ property, compact = false, part = 'all' }: {
       {spec && hasLength(spec.name) && number('length', t('Longueur'), 1, maxLength(spec.name))}
       {spec && hasPrecision(spec.name) && <>{number('precision', t('Précision'), 1, precisionLimits(spec.name, settings.dialect).precision)}{number('scale', t('Décimales'), 0, precisionLimits(spec.name, settings.dialect).scale)}</>}
       {unsigned && <label className={part === 'all' ? 'flex items-center gap-2 text-xs' : 'inline-flex min-h-8 items-center gap-1.5 text-xs'}><input type="checkbox" checked={!!spec.unsigned} disabled={readOnly} onChange={e => apply({ ...spec, unsigned: e.target.checked || undefined })} />UNSIGNED</label>}
-      {spec?.name === 'ENUM' && <label className="flex w-full min-w-0 flex-col gap-1 text-xs text-ink-soft">{t('Une valeur par ligne')}<textarea className={field + ' w-full'} rows={part === 'all' ? 3 : 2} disabled={readOnly} value={draft.values} onChange={e => setDraft(d => ({ ...d, values: e.target.value }))} onBlur={() => apply({ ...spec, values: draft.values.split('\n') })} /></label>}
+      {spec && hasValues(spec.name) && <label className="flex w-full min-w-0 flex-col gap-1 text-xs text-ink-soft">{t('Une valeur par ligne')}<textarea className={field + ' w-full'} rows={part === 'all' ? 3 : 2} disabled={readOnly} value={draft.values} onChange={e => setDraft(d => ({ ...d, values: e.target.value }))} onBlur={() => apply({ ...spec, values: draft.values.split('\n') })} /></label>}
+      {showDefault && <label className={part === 'parameters' ? 'flex min-w-0 items-center gap-1 text-xs text-ink-soft' : 'flex min-w-0 flex-col gap-1 text-xs text-ink-soft'}>
+        <span>{t('Valeur par défaut')}</span>
+        <Select value={chosenDefault ?? ''} disabled={readOnly} aria-label={t('Valeur par défaut de {0}', [property.name])} className={field}
+          onValueChange={value => { if (!readOnly) dispatch({ type: 'SET_COLUMN_DEFAULT', propertyId: property.id, value: value === '' ? null : value }) }}>
+          <option value="">{t('Aucune')}</option>
+          {unavailableDefault && <option value={chosenDefault}>{chosenDefault}</option>}
+          {defaultOptions.map(option => <option key={option.id} value={option.id}>{option.sql}</option>)}
+        </Select>
+      </label>}
       {!parameters && part === 'parameters' && <span className="text-xs text-ink-soft" aria-label={t('Aucun paramètre')}>—</span>}
     </div>}
     {error && <p role="alert" className="text-xs text-danger">{error}</p>}
+    {showDefault && unavailableDefault && <p className="text-xs text-warning">{t('Valeur par défaut indisponible dans ce moteur ou cette version.')}</p>}
     {part !== 'parameters' && (!spec || !sqlTypeNames(settings.dialect, settings.version).includes(spec.name)) && <p className="text-xs text-warning">{t('Type à vérifier pour le moteur choisi.')}</p>}
   </div>
 }

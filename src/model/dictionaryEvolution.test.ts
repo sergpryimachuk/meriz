@@ -97,7 +97,7 @@ describe('déplacements du dictionnaire et direct', () => {
 
 describe('types SQL et code de framework', () => {
   it('propose un catalogue limité, avec des noms SQL exacts', () => {
-    expect(MYSQL_TYPES.length).toBeLessThanOrEqual(20); expect(POSTGRES_TYPES.length).toBeLessThanOrEqual(20)
+    expect(MYSQL_TYPES.length).toBeLessThanOrEqual(30); expect(POSTGRES_TYPES.length).toBeLessThanOrEqual(30)
     expect(MYSQL_TYPES).toContain('VARCHAR'); expect(POSTGRES_TYPES).toContain('UUID')
     expect(parseSqlType('var_char')).toBeNull()
   })

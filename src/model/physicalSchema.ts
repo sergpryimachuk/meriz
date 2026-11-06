@@ -8,6 +8,7 @@ export function physicalSchemaIssues(tables: MpdTable[], dialect: SqlDialect, ve
   for (const table of tables) for (const column of table.columns) {
     const spec = parseSqlType(column.sqlType)
     if (!spec || !sqlTypeForDialect(spec, dialect, version)) { issues.push(t('Type SQL incompatible ou invalide : {0}.{1} ({2}).', [table.name, column.name, column.sqlType])); continue }
+    if (column.unavailableDefault) issues.push(t('Valeur par défaut indisponible dans ce moteur : {0}.{1} ({2}).', [table.name, column.name, column.unavailableDefault]))
     if (column.isPrimaryKey && (dialect === 'mysql' ? ['TEXT', 'JSON', 'BLOB'].includes(spec.name) : spec.name === 'JSON')) issues.push(t('Ce type ne peut pas servir d’identifiant dans cet export : {0}.{1}.', [table.name, column.name]))
     if (column.references) {
       const target = tables.find(candidate => candidate.id === column.references?.tableId)?.columns.find(c => c.name === column.references?.columnName)

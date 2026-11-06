@@ -80,6 +80,8 @@ export interface SchemaColumn {
   isPrimaryKey: boolean
   autoIncrement: boolean
   nullable: boolean
+  /** SQL écrit après DEFAULT au MPD. */
+  defaultSql?: string
   foreignKey?: { group: string; targetTableId: string; referencedColumn: string }
 }
 
@@ -165,6 +167,7 @@ export function buildCodeSchema(mcd: Mcd, tables: MldTable[], settings: MpdSetti
         isPrimaryKey: column.isPrimaryKey,
         autoIncrement: column.autoIncrement,
         nullable: column.nullable,
+        ...(column.defaultSql ? { defaultSql: column.defaultSql } : {}),
       }
       const source = tables.find((candidate) => candidate.id === table.id)
       const mldColumn = source?.columns.find((candidate) => candidate.id === column.id)

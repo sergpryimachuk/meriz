@@ -374,5 +374,11 @@ export const englishExtras: Readonly<Record<string, string>> = {
   "Ces types n’existent pas dans {0}. Choisissez un autre type avant l’export.": "These types do not exist in {0}. Choose another type before exporting.",
   "Changer de moteur": "Change engine",
   "Version": "Version",
-  "{0} (fin de support)": "{0} (end of life)"
+  "{0} (fin de support)": "{0} (end of life)",
+  "Valeur par défaut": "Default value",
+  "Valeur par défaut de {0}": "Default value of {0}",
+  "Aucune": "None",
+  "Valeur par défaut indisponible dans ce moteur ou cette version.": "This default value is not available in this engine or version.",
+  "Doctrine ne compare pas les valeurs par défaut calculées, comme CURRENT_TIMESTAMP ou gen_random_uuid(). Pour le parcours automatique, retirez-les, ou utilisez la migration fournie par Meriz.": "Doctrine does not compare computed default values, such as CURRENT_TIMESTAMP or gen_random_uuid(). For the automatic route, remove them, or use the migration provided by Meriz.",
+  "Valeur par défaut indisponible dans ce moteur : {0}.{1} ({2}).": "Default value not available in this engine: {0}.{1} ({2})."
 }

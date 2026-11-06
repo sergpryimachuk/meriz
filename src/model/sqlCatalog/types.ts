@@ -8,7 +8,18 @@ export type SqlTypeParameters =
   | { kind: 'precision'; maxPrecision: number; maxScale: number }
   | { kind: 'values' }
 
-export type SqlTypeFamily = 'chaine' | 'entier' | 'decimal' | 'approche' | 'booleen' | 'temps' | 'document' | 'binaire' | 'identifiant' | 'autre'
+export type SqlTypeFamily = 'chaine' | 'entier' | 'decimal' | 'approche' | 'booleen' | 'temps' | 'document' | 'binaire' | 'identifiant' | 'reseau' | 'autre'
+
+/**
+ * Valeur par défaut calculée par le moteur, choisie dans une liste fermée.
+ * Jamais un fragment SQL saisi : le document ne retient que `id`.
+ */
+export interface ColumnDefault {
+  readonly id: string
+  /** Écriture SQL exacte après DEFAULT, montrée telle quelle dans le sélecteur. */
+  readonly sql: string
+  readonly since?: string
+}
 
 /** Un type SQL réel d'un moteur. Pas de traduction ni de pseudo-type. */
 export interface SqlTypeDefinition {
@@ -25,6 +36,7 @@ export interface SqlTypeDefinition {
   readonly common?: boolean
   /** Première version du moteur qui connaît ce type. Absent : toutes. */
   readonly since?: string
+  readonly defaults?: readonly ColumnDefault[]
 }
 
 /**

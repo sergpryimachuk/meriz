@@ -21,6 +21,8 @@ const parametersOf = (name: string) => anySqlType(name)?.parameters.kind ?? 'non
 export const isIntegerType = (name: string) => anySqlType(name)?.family === 'entier'
 export const hasLength = (name: string) => parametersOf(name) === 'length'
 export const hasPrecision = (name: string) => parametersOf(name) === 'precision'
+/** Type défini par une liste de valeurs : ENUM, SET. */
+export const hasValues = (name: string) => parametersOf(name) === 'values'
 /** Type listé parmi les types courants, seul visible en mode débutant. */
 export const isCommonType = (name: string) => anySqlType(name)?.common === true
 /** Longueur maximale acceptée pour un type à longueur. */

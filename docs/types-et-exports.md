@@ -14,15 +14,33 @@ Les libellés restent les noms SQL, en français comme en anglais. L’orthograp
 
 | Famille | MySQL | PostgreSQL |
 |---|---|---|
-| Chaînes | VARCHAR, CHAR, TEXT | VARCHAR, CHAR, TEXT |
-| Entiers | INT, BIGINT, SMALLINT, TINYINT | INTEGER, BIGINT, SMALLINT |
+| Chaînes | VARCHAR, CHAR, TEXT, MEDIUMTEXT, LONGTEXT | VARCHAR, CHAR, TEXT |
+| Entiers | INT, BIGINT, MEDIUMINT, SMALLINT, TINYINT | INTEGER, BIGINT, SMALLINT |
 | Décimaux exacts | DECIMAL | NUMERIC |
 | Nombres approchés | FLOAT, DOUBLE | REAL, DOUBLE PRECISION |
 | Booléens | BOOLEAN | BOOLEAN |
-| Dates et heures | DATE, TIME, DATETIME, TIMESTAMP | DATE, TIME, TIMESTAMP, TIMESTAMP WITH TIME ZONE |
+| Dates et heures | DATE, TIME, DATETIME, TIMESTAMP, YEAR | DATE, TIME, TIME WITH TIME ZONE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL |
+| Identifiants | | UUID |
+| Réseau | | INET, CIDR, MACADDR |
 | Documents | JSON | JSON, JSONB |
-| Binaire | BLOB, VARBINARY | BYTEA |
-| Autres | ENUM | UUID |
+| Binaire | BLOB, BINARY, VARBINARY | BYTEA |
+| Autres | ENUM, SET, VECTOR (9.x) | |
+
+Le moteur se choisit avec sa version : MySQL 5.7, 8.0, 8.4 LTS ou 9.x, PostgreSQL 14 à 18. Un type apparu dans une version récente n'est proposé qu'à partir de celle-ci, par exemple VECTOR en MySQL 9. Avant de changer de moteur ou de version, Meriz montre les colonnes dont le type change et celles qui demandent une décision.
+
+MySQL n'a pas de type UUID. BINARY(16) ou CHAR(36) servent à le stocker.
+
+### Valeurs par défaut
+
+Certains types proposent une valeur par défaut calculée par la base. Le choix se fait dans une liste, jamais en saisissant du SQL.
+
+| Type | MySQL | PostgreSQL |
+|---|---|---|
+| UUID | | gen_random_uuid(), uuidv7() en 18 |
+| DATETIME, TIMESTAMP | CURRENT_TIMESTAMP | CURRENT_TIMESTAMP |
+| DATE | (CURRENT_DATE), depuis 8.0.13 | CURRENT_DATE |
+
+Une clé étrangère reprend le type de l'identifiant visé, pas sa valeur par défaut. Une valeur absente du moteur ou de la version choisie est signalée et bloque l'export. Doctrine ne compare pas ces valeurs : Meriz le signale pour le parcours automatique.
 
 Ce catalogue couvre les usages usuels sans exposer toutes les variantes d’un moteur. DECIMAL/NUMERIC conviennent aux montants exacts ; FLOAT/REAL/DOUBLE restent approchés. TEXT évite de choisir une longueur arbitraire pour un texte long ; VARCHAR garde une longueur explicite. JSONB, UUID et ENUM sont propres aux moteurs indiqués.
 

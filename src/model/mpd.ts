@@ -5,7 +5,7 @@ import { t } from "../i18n/runtime"
 import type { AttributeType } from './mcd'
 import type { MldColumn, MldTable } from './mld'
 import { sanitizeSqlName } from './sql'
-import { catalogFor } from './sqlCatalog'
+import { catalogFor, defaultsFor } from './sqlCatalog'
 
 /**
  * MPD : le modèle physique. Structure dérivée du MLD (jamais éditée),
@@ -28,6 +28,8 @@ export interface MpdSettings {
   version?: string
   overrides: Record<string, string>
   identity?: Record<string, boolean>
+  /** Valeur par défaut choisie par propriété : l'id d'un `ColumnDefault` du catalogue. */
+  defaults?: Record<string, string>
 }
 
 export const DEFAULT_MPD_SETTINGS: MpdSettings = { dialect: 'mysql', overrides: {} }
@@ -50,6 +52,10 @@ export interface MpdColumn {
   nullable: boolean
   /** PK simple, entière, sans surcharge : auto-incrément pertinent. */
   autoIncrement: boolean
+  /** SQL écrit après DEFAULT, si la valeur choisie existe dans le moteur. */
+  defaultSql?: string
+  /** Valeur choisie mais absente du moteur ou de la version : à corriger avant l'export. */
+  unavailableDefault?: string
   references?: MldColumn['references']
 }
 
@@ -81,6 +87,9 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
           primaryKeys.length === 1 &&
           column.references === undefined &&
           (explicitIdentity === true ? !!parsed && isIntegerType(parsed.name) : explicitIdentity !== false && column.type === 'entier' && !overridden)
+        // Une clé étrangère n'hérite jamais de la valeur par défaut de la colonne visée.
+        const defaultId = column.references ? undefined : settings.defaults?.[column.id]
+        const offered = defaultId && translated ? defaultsFor(settings.dialect, settings.version, translated.name).find(option => option.id === defaultId) : undefined
         return {
           id: column.id,
           name: column.name,
@@ -91,6 +100,7 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
           isPrimaryKey: column.isPrimaryKey,
           nullable: column.nullable,
           autoIncrement,
+          ...(offered ? { defaultSql: offered.sql } : defaultId ? { unavailableDefault: defaultId } : {}),
           references: column.references,
         }
       }),
@@ -169,7 +179,8 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
       const autoIncrementPart =
         column.autoIncrement && dialect === 'mysql' ? ' AUTO_INCREMENT' : ''
       const nullability = column.nullable ? '' : ' NOT NULL'
-      lines.push(`  ${quoteSqlName(column.name, dialect)} ${typePart}${nullability}${autoIncrementPart}`)
+      const defaultPart = column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''
+      lines.push(`  ${quoteSqlName(column.name, dialect)} ${typePart}${nullability}${defaultPart}${autoIncrementPart}`)
     }
     const primaryKey = table.columns.filter((c) => c.isPrimaryKey)
     if (primaryKey.length > 0) {

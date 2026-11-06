@@ -33,8 +33,10 @@ describe('versions des moteurs', () => {
     expect(availableIn(vector, '9')).toBe(true)
   })
 
-  it('le catalogue actuel est complet dans toutes les versions', () => {
-    expect(sqlTypeNames('mysql', '5.7')).toEqual(sqlTypeNames('mysql'))
+  it('VECTOR n’apparaît qu’à partir de MySQL 9', () => {
+    expect(sqlTypeNames('mysql', '8.4')).not.toContain('VECTOR')
+    expect(sqlTypeNames('mysql', '9')).toContain('VECTOR')
+    expect(sqlTypeNames('mysql')).toContain('VECTOR')
     expect(sqlTypeNames('postgresql', '14')).toEqual(sqlTypeNames('postgresql'))
   })
 })

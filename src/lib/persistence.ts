@@ -104,9 +104,12 @@ export function parseMpdSettings(raw: unknown): MpdSettings | null {
   }
   const identity: Record<string, boolean> = {}
   if (isRecord(raw.identity)) for (const [key, value] of Object.entries(raw.identity)) if (typeof value === 'boolean') identity[key] = value
+  // Une valeur par défaut inconnue reste lue : le MPD la signale au lieu de l'effacer.
+  const defaults: Record<string, string> = {}
+  if (isRecord(raw.defaults)) for (const [key, value] of Object.entries(raw.defaults)) if (typeof value === 'string' && /^[a-z0-9_]{1,40}$/.test(value)) defaults[key] = value
   // Une version inconnue, par exemple d'une version future de Meriz, retombe sur le défaut du moteur.
   const version = typeof raw.version === 'string' && isKnownVersion(raw.dialect, raw.version) ? raw.version : undefined
-  return { dialect: raw.dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}) }
+  return { dialect: raw.dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
 }
 
 function isAttributeType(value: unknown): boolean {
