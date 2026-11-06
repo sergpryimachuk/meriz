@@ -36,6 +36,8 @@ export interface SqlTypeDefinition {
   readonly common?: boolean
   /** Première version du moteur qui connaît ce type. Absent : toutes. */
   readonly since?: string
+  /** Dernière version qui accepte ce type. Absent : aucune limite. */
+  readonly until?: string
   readonly defaults?: readonly ColumnDefault[]
 }
 
@@ -61,6 +63,6 @@ export interface EngineCatalog {
   readonly types: readonly SqlTypeDefinition[]
   /** Nom d'un autre moteur vers le nom équivalent de celui-ci. */
   readonly translations: Readonly<Record<string, string>>
-  /** Type SQL proposé pour un type conceptuel. */
-  propose(type: AttributeType, size: number | undefined): string
+  /** Type SQL proposé pour un type conceptuel, selon la version si elle compte. */
+  propose(type: AttributeType, size: number | undefined, version?: string): string
 }

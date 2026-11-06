@@ -29,10 +29,11 @@ function statements(sql: string): string[] {
     .filter((block) => block !== '')
 }
 
-export function symfonyMigrationFile(schema: CodeSchema, dialect: SqlDialect): GeneratedFile {
-  const up = statements(mpdToSql(schema.physicalTables, dialect, { includeDrops: false }))
+export function symfonyMigrationFile(schema: CodeSchema, dialect: SqlDialect, version?: string): GeneratedFile {
+  const up = statements(mpdToSql(schema.physicalTables, dialect, { includeDrops: false, version }))
+  // SQLite retire ses clés avec la table : pas d'ALTER TABLE.
   const down = [
-    ...foreignConstraints(schema.physicalTables).map(({ table, name }) =>
+    ...(dialect === 'sqlite' ? [] : foreignConstraints(schema.physicalTables)).map(({ table, name }) =>
       'ALTER TABLE ' + quoteSqlName(table.name, dialect) + (usesMysqlSyntax(dialect) ? ' DROP FOREIGN KEY ' : ' DROP CONSTRAINT ') + quoteSqlName(name, dialect)),
     ...sortForCreation(schema.physicalTables).reverse().map(table => 'DROP TABLE IF EXISTS ' + quoteSqlName(table.name, dialect)),
   ]

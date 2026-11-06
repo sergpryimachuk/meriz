@@ -1,15 +1,16 @@
 import type { AttributeType } from './mcd'
 import type { SqlDialect } from './mpd'
-import { anySqlType, availableIn, catalogFor, findSqlType, MARIADB_TYPE_DEFINITIONS, MYSQL_TYPE_DEFINITIONS, POSTGRES_TYPE_DEFINITIONS, resolveVersion, SQL_TYPE_ALIASES } from './sqlCatalog'
+import { anySqlType, availableIn, catalogFor, findSqlType, MARIADB_TYPE_DEFINITIONS, MYSQL_TYPE_DEFINITIONS, POSTGRES_TYPE_DEFINITIONS, SQLITE_TYPE_DEFINITIONS, resolveVersion, SQL_TYPE_ALIASES } from './sqlCatalog'
 
 /** Noms SQL réels ; pas de traductions ni de pseudo-types dans les sélecteurs. Le détail vit dans `sqlCatalog`. */
 export const MYSQL_TYPES = MYSQL_TYPE_DEFINITIONS.map(definition => definition.name)
 export const MARIADB_TYPES = MARIADB_TYPE_DEFINITIONS.map(definition => definition.name)
 export const POSTGRES_TYPES = POSTGRES_TYPE_DEFINITIONS.map(definition => definition.name)
-export type SqlTypeName = (typeof MYSQL_TYPES)[number] | (typeof MARIADB_TYPES)[number] | (typeof POSTGRES_TYPES)[number]
+export const SQLITE_TYPES = SQLITE_TYPE_DEFINITIONS.map(definition => definition.name)
+export type SqlTypeName = (typeof MYSQL_TYPES)[number] | (typeof MARIADB_TYPES)[number] | (typeof POSTGRES_TYPES)[number] | (typeof SQLITE_TYPES)[number]
 export interface SqlTypeSpec { name: SqlTypeName; length?: number; precision?: number; scale?: number; values?: string[]; unsigned?: boolean }
-const ALL_TYPES: readonly SqlTypeName[] = [...new Set<SqlTypeName>([...MYSQL_TYPES, ...MARIADB_TYPES, ...POSTGRES_TYPES])]
-const NAMES: Readonly<Record<SqlDialect, readonly SqlTypeName[]>> = { mysql: MYSQL_TYPES, mariadb: MARIADB_TYPES, postgresql: POSTGRES_TYPES }
+const ALL_TYPES: readonly SqlTypeName[] = [...new Set<SqlTypeName>([...MYSQL_TYPES, ...MARIADB_TYPES, ...POSTGRES_TYPES, ...SQLITE_TYPES])]
+const NAMES: Readonly<Record<SqlDialect, readonly SqlTypeName[]>> = { mysql: MYSQL_TYPES, mariadb: MARIADB_TYPES, postgresql: POSTGRES_TYPES, sqlite: SQLITE_TYPES }
 /** Borne de lecture commune ; chaque moteur resserre ensuite la sienne. */
 const PARSE_MAX_PRECISION = 1000
 /** Types du moteur, limités à ceux de la version si elle est donnée. */

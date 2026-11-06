@@ -32,6 +32,8 @@ MySQL n'a pas de type UUID. BINARY(16) ou CHAR(36) servent à le stocker.
 
 MariaDB 10.6, 10.11, 11.4, 11.8 et 12.3 reprend les types MySQL, avec ces écarts : UUID depuis 10.7, INET6, INET4 depuis 10.10, et VECTOR depuis 11.7. Le SQL suit la syntaxe MySQL.
 
+SQLite stocke par affinité. Deux modes sont proposés. En 3.37+ (STRICT), les tables refusent une valeur du mauvais type, et seuls INTEGER, REAL, TEXT, BLOB et ANY sont admis. En mode classique, NUMERIC s'ajoute et ANY disparaît. SQLite n'a ni booléen, ni date, ni UUID. Un booléen devient INTEGER avec CHECK (col IN (0, 1)). Une date devient TEXT au format ISO 8601, avec CURRENT_TIMESTAMP, CURRENT_DATE ou CURRENT_TIME par défaut. Un montant exact reste NUMERIC en mode classique, TEXT en STRICT. L'identifiant entier simple devient INTEGER PRIMARY KEY. Les clés étrangères sont écrites dans le CREATE TABLE, et le script commence par PRAGMA foreign_keys = ON.
+
 ### Valeurs par défaut
 
 Certains types proposent une valeur par défaut calculée par la base. Le choix se fait dans une liste, jamais en saisissant du SQL.

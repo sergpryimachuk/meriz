@@ -5,7 +5,7 @@ import { t } from "../i18n/runtime"
 import type { AttributeType } from './mcd'
 import type { MldColumn, MldTable } from './mld'
 import { sanitizeSqlName } from './sql'
-import { catalogFor, defaultsFor, usesMysqlSyntax } from './sqlCatalog'
+import { catalogFor, defaultsFor, sqliteStrict, usesMysqlSyntax } from './sqlCatalog'
 
 /**
  * MPD : le modèle physique. Structure dérivée du MLD (jamais éditée),
@@ -14,12 +14,13 @@ import { catalogFor, defaultsFor, usesMysqlSyntax } from './sqlCatalog'
  * seulement ici, que les types conceptuels deviennent des types SQL.
  */
 
-export type SqlDialect = 'mysql' | 'mariadb' | 'postgresql'
+export type SqlDialect = 'mysql' | 'mariadb' | 'postgresql' | 'sqlite'
 
 export const SQL_DIALECTS: readonly { id: SqlDialect; label: string }[] = [
   { id: 'mysql', get label() { return t("MySQL") } },
   { id: 'mariadb', get label() { return t("MariaDB") } },
   { id: 'postgresql', get label() { return t("PostgreSQL") } },
+  { id: 'sqlite', get label() { return t("SQLite") } },
 ]
 
 /** Réglages mémorisés : dialecte + surcharges par colonne (id stable). */
@@ -36,8 +37,8 @@ export interface MpdSettings {
 export const DEFAULT_MPD_SETTINGS: MpdSettings = { dialect: 'mysql', overrides: {} }
 
 /** Type SQL proposé pour un type conceptuel, selon le dialecte. */
-export function proposedSqlType(type: AttributeType, size: number | undefined, dialect: SqlDialect): string {
-  return catalogFor(dialect).propose(type, size)
+export function proposedSqlType(type: AttributeType, size: number | undefined, dialect: SqlDialect, version?: string): string {
+  return catalogFor(dialect).propose(type, size, version)
 }
 
 export interface MpdColumn {
@@ -74,7 +75,7 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
       id: table.id,
       name: table.name,
       columns: table.columns.map((column): MpdColumn => {
-        const proposed = proposedSqlType(column.type, column.size, settings.dialect)
+        const proposed = proposedSqlType(column.type, column.size, settings.dialect, settings.version)
         // Une FK hérite du type physique de la colonne visée, même si celui-ci change en direct.
         const sourceId = sourcePropertyId(column, tables)
         const override = (settings.overrides[column.id] ?? settings.overrides[sourceId])?.trim()
@@ -147,6 +148,8 @@ export function sortForCreation(tables: MpdTable[]): MpdTable[] {
 
 export interface SqlOptions {
   includeDrops: boolean
+  /** Version du moteur. Sous SQLite, elle décide des tables STRICT. */
+  version?: string
 }
 
 /**
@@ -155,10 +158,18 @@ export interface SqlOptions {
  * les clés étrangères en ALTER TABLE ADD CONSTRAINT, avec des noms
  * lisibles et déterministes. DROP TABLE IF EXISTS optionnels, en
  * ordre inverse des dépendances.
+ *
+ * SQLite ne sait pas ajouter une contrainte par ALTER TABLE : ses clés
+ * étrangères vont dans le CREATE TABLE. Il ne vérifie une clé qu'à
+ * l'écriture, donc l'ordre de création et les cycles ne le gênent pas.
  */
 export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOptions): string {
   const ordered = sortForCreation(tables)
   const parts: string[] = []
+  const sqlite = dialect === 'sqlite'
+  const inlineKeys = sqlite ? foreignConstraints(tables) : []
+  // Sans ce réglage, SQLite ignore les clés étrangères.
+  if (sqlite) parts.push('PRAGMA foreign_keys = ON;')
 
   if (options.includeDrops) {
     parts.push(
@@ -171,7 +182,11 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
 
   for (const table of ordered) {
     const lines: string[] = []
+    // INTEGER PRIMARY KEY est l'alias du rowid : l'auto-incrément de SQLite.
+    const rowid = sqlite ? table.columns.find(c => c.autoIncrement && c.sqlType === 'INTEGER') : undefined
     for (const column of table.columns) {
+      const name = quoteSqlName(column.name, dialect)
+      if (column === rowid) { lines.push(`  ${name} INTEGER PRIMARY KEY`); continue }
       let typePart = column.sqlType
       if (column.autoIncrement && dialect === 'postgresql') {
         // SERIAL remplace le type et porte l'auto-incrément.
@@ -181,27 +196,35 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
         column.autoIncrement && usesMysqlSyntax(dialect) ? ' AUTO_INCREMENT' : ''
       const nullability = column.nullable ? '' : ' NOT NULL'
       const defaultPart = column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''
-      lines.push(`  ${quoteSqlName(column.name, dialect)} ${typePart}${nullability}${defaultPart}${autoIncrementPart}`)
+      // SQLite n'a pas de booléen : l'entier est borné à 0 et 1.
+      const checkPart = sqlite && column.conceptualType === 'booleen' && column.sqlType === 'INTEGER' ? ` CHECK (${name} IN (0, 1))` : ''
+      lines.push(`  ${name} ${typePart}${nullability}${defaultPart}${autoIncrementPart}${checkPart}`)
     }
     const primaryKey = table.columns.filter((c) => c.isPrimaryKey)
-    if (primaryKey.length > 0) {
+    if (primaryKey.length > 0 && !rowid) {
       lines.push(`  PRIMARY KEY (${primaryKey.map((c) => quoteSqlName(c.name, dialect)).join(', ')})`)
     }
-    parts.push(`CREATE TABLE ${quoteSqlName(table.name, dialect)} (\n${lines.join(',\n')}\n);`)
+    for (const key of inlineKeys.filter(candidate => candidate.table.id === table.id)) lines.push('  ' + foreignKeyClause(key, dialect))
+    const strict = sqlite && sqliteStrict(options.version) ? ' STRICT' : ''
+    parts.push(`CREATE TABLE ${quoteSqlName(table.name, dialect)} (\n${lines.join(',\n')}\n)${strict};`)
   }
 
   // Clés étrangères après toutes les créations : plus de contrainte
   // d'ordre. Un groupe (une patte d'origine) = une contrainte.
-  const alterStatements = foreignConstraints(tables).map(({ table, columns, targetName, name }) => {
-    const local = columns.map(c => quoteSqlName(c.name, dialect)).join(', ')
-    const foreign = columns.map(c => quoteSqlName(c.references?.columnName ?? '', dialect)).join(', ')
-    return 'ALTER TABLE ' + quoteSqlName(table.name, dialect) + '\n  ADD CONSTRAINT ' + quoteSqlName(name, dialect) + ' FOREIGN KEY (' + local + ') REFERENCES ' + quoteSqlName(targetName, dialect) + ' (' + foreign + ');'
-  })
+  const alterStatements = sqlite ? [] : foreignConstraints(tables).map((key) =>
+    'ALTER TABLE ' + quoteSqlName(key.table.name, dialect) + '\n  ADD ' + foreignKeyClause(key, dialect) + ';')
   if (alterStatements.length > 0) {
     parts.push(alterStatements.join('\n\n'))
   }
 
   return parts.join('\n\n')
+}
+
+/** CONSTRAINT nom FOREIGN KEY (...) REFERENCES cible (...), commun aux deux emplacements. */
+function foreignKeyClause({ columns, targetName, name }: { columns: MpdColumn[]; targetName: string; name: string }, dialect: SqlDialect): string {
+  const local = columns.map(c => quoteSqlName(c.name, dialect)).join(', ')
+  const foreign = columns.map(c => quoteSqlName(c.references?.columnName ?? '', dialect)).join(', ')
+  return 'CONSTRAINT ' + quoteSqlName(name, dialect) + ' FOREIGN KEY (' + local + ') REFERENCES ' + quoteSqlName(targetName, dialect) + ' (' + foreign + ')'
 }
 
 /** Les mêmes noms déterministes pour créer et retirer uniquement nos contraintes. */

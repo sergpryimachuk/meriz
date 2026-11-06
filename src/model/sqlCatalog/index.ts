@@ -2,14 +2,16 @@ import type { SqlDialect } from '../mpd'
 import { MARIADB_CATALOG } from './mariadb'
 import { MYSQL_CATALOG } from './mysql'
 import { POSTGRES_CATALOG } from './postgresql'
+import { SQLITE_CATALOG, SQLITE_STRICT_SINCE } from './sqlite'
 import type { ColumnDefault, EngineCatalog, SqlTypeDefinition } from './types'
 
 export type { ColumnDefault, EngineCatalog, EngineVersion, SqlTypeDefinition, SqlTypeFamily, SqlTypeParameters } from './types'
 export { MARIADB_TYPE_DEFINITIONS } from './mariadb'
 export { MYSQL_TYPE_DEFINITIONS } from './mysql'
 export { POSTGRES_TYPE_DEFINITIONS } from './postgresql'
+export { SQLITE_TYPE_DEFINITIONS } from './sqlite'
 
-const CATALOGS: Readonly<Record<SqlDialect, EngineCatalog>> = { mysql: MYSQL_CATALOG, mariadb: MARIADB_CATALOG, postgresql: POSTGRES_CATALOG }
+const CATALOGS: Readonly<Record<SqlDialect, EngineCatalog>> = { mysql: MYSQL_CATALOG, mariadb: MARIADB_CATALOG, postgresql: POSTGRES_CATALOG, sqlite: SQLITE_CATALOG }
 
 /** MySQL et MariaDB partagent la syntaxe : accents graves, AUTO_INCREMENT, DROP FOREIGN KEY. */
 export const usesMysqlSyntax = (dialect: SqlDialect): boolean => dialect === 'mysql' || dialect === 'mariadb'
@@ -39,9 +41,17 @@ export function versionAtLeast(version: string, since: string): boolean {
   return true
 }
 
+/** Vrai si la version ne dépasse pas `until`. */
+export function versionAtMost(version: string, until: string): boolean {
+  return version === until || !versionAtLeast(version, until)
+}
+
 /** Le type existe dans cette version du moteur. */
 export const availableIn = (definition: SqlTypeDefinition, version: string): boolean =>
-  definition.since === undefined || versionAtLeast(version, definition.since)
+  (definition.since === undefined || versionAtLeast(version, definition.since)) && (definition.until === undefined || versionAtMost(version, definition.until))
+
+/** Tables STRICT : SQLite 3.37 et suivantes, dans le mode choisi. */
+export const sqliteStrict = (version: string | undefined): boolean => versionAtLeast(resolveVersion('sqlite', version), SQLITE_STRICT_SINCE)
 
 /**
  * Valeurs par défaut que le moteur propose pour ce type. Sans version,

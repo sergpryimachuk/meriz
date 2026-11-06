@@ -273,7 +273,7 @@ Chaque étape se livre seule, avec ses tests.
 2. **Moteur et version.** Champ `version`, lecture des anciens fichiers et du document Yjs, sélecteur de version, bilan de changement.
 3. **Ajouts au catalogue et défauts de colonne.** Dont UUID natif PostgreSQL avec défaut.
 4. **MariaDB.** Catalogue dérivé de MySQL, UUID natif selon la version, pilote Laravel `mariadb`.
-5. **SQLite.** Catalogue, générateur avec clés en ligne, exports Laravel et Doctrine.
+5. **SQLite.** Livré : mode STRICT ou classique, clés étrangères dans le CREATE TABLE, SQL exécuté sous SQLite 3.54. Catalogue, générateur avec clés en ligne, exports Laravel et Doctrine.
 6. **Types personnalisés.** Modèle, onglet, rendu par moteur, modèles fournis.
 7. **Docker.** `MERIZ_DEFAULT_TARGET` et `compose.test.yaml`.
 

@@ -12,7 +12,7 @@ export const SqlTypesContext = createContext<{ settings: MpdSettings; dispatch: 
 export function useSqlTypes() {
   const context = useContext(SqlTypesContext)
   return { ...context, physicalType: (id: string, type: AttributeType, size?: number) => {
-    const raw = context.settings.overrides[id] ?? proposedSqlType(type, size, context.settings.dialect)
+    const raw = context.settings.overrides[id] ?? proposedSqlType(type, size, context.settings.dialect, context.settings.version)
     const spec = parseSqlType(raw), mapped = spec && sqlTypeForDialect(spec, context.settings.dialect, context.settings.version)
     return mapped ? formatSqlType(mapped) : raw
   } }

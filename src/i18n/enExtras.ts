@@ -381,5 +381,8 @@ export const englishExtras: Readonly<Record<string, string>> = {
   "Valeur par défaut indisponible dans ce moteur ou cette version.": "This default value is not available in this engine or version.",
   "Doctrine ne compare pas les valeurs par défaut calculées, comme CURRENT_TIMESTAMP ou gen_random_uuid(). Pour le parcours automatique, retirez-les, ou utilisez la migration fournie par Meriz.": "Doctrine does not compare computed default values, such as CURRENT_TIMESTAMP or gen_random_uuid(). For the automatic route, remove them, or use the migration provided by Meriz.",
   "Valeur par défaut indisponible dans ce moteur : {0}.{1} ({2}).": "Default value not available in this engine: {0}.{1} ({2}).",
-  "MariaDB": "MariaDB"
+  "MariaDB": "MariaDB",
+  "SQLite": "SQLite",
+  "classique": "classic",
+  "3.37+ (STRICT)": "3.37+ (STRICT)"
 }

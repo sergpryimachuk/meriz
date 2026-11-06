@@ -48,8 +48,8 @@ export function SqlView({ tables, dialect, version, hasErrors }: SqlViewProps) {
 
   const typeIssues = physicalSchemaIssues(tables, dialect, version)
   const sql = useMemo(
-    () => mpdToSql(tables, dialect, { includeDrops }),
-    [tables, dialect, includeDrops],
+    () => mpdToSql(tables, dialect, { includeDrops, version }),
+    [tables, dialect, includeDrops, version],
   )
 
   if (tables.length === 0) {

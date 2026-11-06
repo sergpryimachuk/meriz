@@ -41,7 +41,7 @@ export function blueprintColumn(column: SchemaColumn): string {
     case 'INET': call = `ipAddress(${name})`; break
     case 'MACADDR': call = `macAddress(${name})`; break
     // Sans méthode Blueprint portable : le type validé est écrit tel quel.
-    case 'CIDR': case 'INTERVAL': case 'SET': case 'VECTOR': case 'INET4': case 'INET6': call = `rawColumn(${name}, ${phpString(formatSqlType(spec))})`; break
+    case 'CIDR': case 'INTERVAL': case 'SET': case 'VECTOR': case 'INET4': case 'INET6': case 'ANY': call = `rawColumn(${name}, ${phpString(formatSqlType(spec))})`; break
     case 'BINARY': call = `binary(${name}, length: ${spec.length}, fixed: true)`; break
     case 'JSON': call = `json(${name})`; break
     case 'JSONB': call = `jsonb(${name})`; break
@@ -59,7 +59,7 @@ function laravelDefault(sql: string | undefined): string {
   return `->default(new \\Illuminate\\Database\\Query\\Expression(${phpString(sql)}))`
 }
 
-const NATIVE_DEFINITION: readonly string[] = ['TINYINT', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'MEDIUMINT', 'YEAR', 'TIME WITH TIME ZONE', 'INTERVAL', 'INET', 'INET4', 'INET6', 'CIDR', 'MACADDR', 'SET', 'VECTOR']
+const NATIVE_DEFINITION: readonly string[] = ['TINYINT', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'MEDIUMINT', 'YEAR', 'TIME WITH TIME ZONE', 'INTERVAL', 'INET', 'INET4', 'INET6', 'CIDR', 'MACADDR', 'SET', 'VECTOR', 'ANY']
 
 export interface DoctrineColumnFormat { attribute: string; phpType: string; needsTypes: boolean }
 export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysql'): DoctrineColumnFormat {
@@ -74,7 +74,7 @@ export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysq
     case 'MEDIUMINT': type = 'INTEGER'; phpType = 'int'; break
     case 'YEAR': type = 'SMALLINT'; phpType = 'int'; break
     case 'TIME WITH TIME ZONE': type = 'TIME_MUTABLE'; phpType = '\\DateTimeInterface'; break
-    case 'INTERVAL': case 'INET': case 'INET4': case 'INET6': case 'CIDR': case 'MACADDR': case 'SET': case 'VECTOR': type = 'STRING'; phpType = 'string'; break
+    case 'INTERVAL': case 'INET': case 'INET4': case 'INET6': case 'CIDR': case 'MACADDR': case 'SET': case 'VECTOR': case 'ANY': type = 'STRING'; phpType = 'string'; break
     case 'BINARY': type = 'BINARY'; phpType = 'string'; parameters.push(`length: ${spec.length}`); break
     case 'INT': case 'INTEGER': type = 'INTEGER'; phpType = 'int'; break
     case 'BIGINT': type = 'BIGINT'; phpType = 'int|string'; break
@@ -112,7 +112,8 @@ export const nullablePhpType = (type: string) => type === 'mixed' ? 'mixed' : ty
 export function eloquentCast(column: SchemaColumn): string | null {
   const spec = columnSqlSpec(column)
   if (spec.name === 'JSON' || spec.name === 'JSONB') return 'array'
-  if (spec.name === 'BOOLEAN') return 'boolean'
+  // Sous SQLite, un booléen est un INTEGER : le type conceptuel garde le sens.
+  if (spec.name === 'BOOLEAN' || column.conceptualType === 'booleen') return 'boolean'
   if (spec.name === 'DECIMAL' || spec.name === 'NUMERIC') return 'decimal:' + spec.scale
   if (['FLOAT', 'REAL', 'DOUBLE', 'DOUBLE PRECISION'].includes(spec.name)) return 'float'
   if (spec.name === 'DATE') return 'date'
