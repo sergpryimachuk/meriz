@@ -5,6 +5,7 @@ import { t } from "../i18n/runtime"
 import type { AttributeType } from './mcd'
 import type { MldColumn, MldTable } from './mld'
 import { sanitizeSqlName } from './sql'
+import { catalogFor } from './sqlCatalog'
 
 /**
  * MPD : le modèle physique. Structure dérivée du MLD (jamais éditée),
@@ -23,6 +24,8 @@ export const SQL_DIALECTS: readonly { id: SqlDialect; label: string }[] = [
 /** Réglages mémorisés : dialecte + surcharges par colonne (id stable). */
 export interface MpdSettings {
   dialect: SqlDialect
+  /** Version du moteur. Absente : version par défaut du moteur. */
+  version?: string
   overrides: Record<string, string>
   identity?: Record<string, boolean>
 }
@@ -31,23 +34,7 @@ export const DEFAULT_MPD_SETTINGS: MpdSettings = { dialect: 'mysql', overrides: 
 
 /** Type SQL proposé pour un type conceptuel, selon le dialecte. */
 export function proposedSqlType(type: AttributeType, size: number | undefined, dialect: SqlDialect): string {
-  switch (type) {
-    case 'texte':
-      return `VARCHAR(${size ?? 255})`
-    case 'entier':
-      return dialect === 'mysql' ? 'INT' : 'INTEGER'
-    case 'decimal':
-      return dialect === 'mysql' ? 'DECIMAL(10,2)' : 'NUMERIC(10,2)'
-    case 'booleen':
-      // TINYINT(1) est l'alias BOOLEAN de MySQL.
-      return dialect === 'mysql' ? 'TINYINT(1)' : 'BOOLEAN'
-    case 'date':
-      return 'DATE'
-    case 'datetime':
-      return dialect === 'mysql' ? 'DATETIME' : 'TIMESTAMP'
-    case 'heure':
-      return 'TIME'
-  }
+  return catalogFor(dialect).propose(type, size)
 }
 
 export interface MpdColumn {
@@ -87,7 +74,7 @@ export function buildMpd(tables: MldTable[], settings: MpdSettings): MpdTable[] 
         const overridden = override !== undefined && override !== ''
         const explicitIdentity = settings.identity?.[sourceId]
         const parsed = parseSqlType(overridden ? override : proposed)
-        const translated = parsed && sqlTypeForDialect(parsed, settings.dialect)
+        const translated = parsed && sqlTypeForDialect(parsed, settings.dialect, settings.version)
         const finalType = translated ? formatSqlType(translated) : overridden ? override : proposed
         const autoIncrement =
           column.isPrimaryKey &&

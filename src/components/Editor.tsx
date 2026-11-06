@@ -34,6 +34,10 @@ import { McdView } from './McdView'
 import { DictionaryView } from './DictionaryView'
 import { MldView } from './MldView'
 import { MpdView } from './MpdView'
+import { EngineChangeDialog } from './EngineChangeDialog'
+import { hasImpact, targetChangeImpact } from '../model/targetChange'
+import type { TargetChangeImpact } from '../model/targetChange'
+import { targetLabel } from '../model/sqlCatalog'
 import { SqlView } from './SqlView'
 import { LearnView } from './LearnView'
 import { AboutView } from './AboutView'
@@ -320,9 +324,17 @@ export function Editor({
     setActiveView('mld')
   }, [setActiveView])
 
-  const setDialect = useCallback((dialect: SqlDialect) => {
-    dispatch({ type: 'SET_DIALECT', dialect })
-  }, [dispatch])
+  // Changer de moteur ou de version montre d'abord ce qui change, s'il y a quelque chose.
+  const [pendingTarget, setPendingTarget] = useState<{ dialect: SqlDialect; version: string; impact: TargetChangeImpact } | null>(null)
+  const requestTarget = useCallback((dialect: SqlDialect, version: string) => {
+    const impact = targetChangeImpact(mldTables, mpdSettings, dialect, version)
+    if (hasImpact(impact)) setPendingTarget({ dialect, version, impact })
+    else dispatch({ type: 'SET_DIALECT', dialect, version })
+  }, [mldTables, mpdSettings, dispatch])
+  const confirmTarget = useCallback(() => {
+    if (pendingTarget) dispatch({ type: 'SET_DIALECT', dialect: pendingTarget.dialect, version: pendingTarget.version })
+    setPendingTarget(null)
+  }, [pendingTarget, dispatch])
 
   const setTypeOverride = useCallback((columnId: string, value: string) => {
     dispatch({ type: 'SET_SQL_TYPE', propertyId: columnId, value })
@@ -341,7 +353,7 @@ export function Editor({
   )
 
   return (
-    <SqlTypesContext value={{ settings: mpdSettings, dispatch, readOnly: locked, beginner: interfaceMode === 'beginner' }}>
+    <SqlTypesContext value={{ settings: mpdSettings, dispatch, readOnly: locked, beginner: interfaceMode === 'beginner', requestTarget: locked ? undefined : requestTarget }}>
     <div className="flex h-dvh flex-col bg-shell font-sans text-ink">
       <SkipLink />
       <ConfirmDialog open={confirmLeaveAnnotations} title={t("Des commentaires ou traits ne sont pas enregistrés")}
@@ -433,13 +445,13 @@ export function Editor({
               hasErrors={hasErrors}
               settings={mpdSettings}
               readOnly={locked}
-              onDialectChange={locked ? IGNORE_ACTION : setDialect}
+              onTargetChange={locked ? IGNORE_ACTION : requestTarget}
               onOverrideChange={locked ? IGNORE_ACTION : setTypeOverride}
               isActive={activeView === 'mpd'}
             />
 
             {activeView === 'sql' && (
-              <SqlView tables={mpdTables} dialect={mpdSettings.dialect} hasErrors={hasErrors} />
+              <SqlView tables={mpdTables} dialect={mpdSettings.dialect} version={mpdSettings.version} hasErrors={hasErrors} />
             )}
 
             {activeView === 'code' && (
@@ -457,6 +469,8 @@ export function Editor({
         </div>
       </ReactFlowProvider>
     </div>
+    {pendingTarget && <EngineChangeDialog open target={targetLabel(pendingTarget.dialect, pendingTarget.version)} impact={pendingTarget.impact}
+      onConfirm={confirmTarget} onCancel={() => setPendingTarget(null)} />}
     </SqlTypesContext>
   )
 }

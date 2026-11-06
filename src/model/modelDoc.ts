@@ -452,7 +452,7 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
       if (key.startsWith('type:') && typeof value === 'string') overrides[key.slice(5)] = value
       if (key.startsWith('identity:') && typeof value === 'boolean') identity[key.slice(9)] = value
     }
-    return parseMpdSettings({ dialect, overrides, identity }) ?? undefined
+    return parseMpdSettings({ dialect, version: physicalMap.get('version'), overrides, identity }) ?? undefined
   }
   function normalizedMcd() {
     const mcd = readMcd(roots), used = new Set<string>()
@@ -481,6 +481,7 @@ export function createModelDoc(initial: McdEditorState, options: ModelDocOptions
     reconcileLayout(layoutMap, state.layout)
     if (state.mpd) {
       const values = new Map<string, string | boolean>([['dialect', state.mpd.dialect]])
+      if (state.mpd.version) values.set('version', state.mpd.version)
       for (const [id, value] of Object.entries(state.mpd.overrides)) values.set('type:' + id, value)
       for (const [id, value] of Object.entries(state.mpd.identity ?? {})) values.set('identity:' + id, value)
       for (const key of physicalMap.keys()) if (!values.has(key)) physicalMap.delete(key)

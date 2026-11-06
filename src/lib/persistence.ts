@@ -12,6 +12,7 @@ import { ATTRIBUTE_TYPES } from '../model/mcd'
 import type { McdLayout, Position } from '../model/layout'
 import type { McdEditorState } from '../model/mcdReducer'
 import type { MpdSettings } from '../model/mpd'
+import { isKnownVersion } from '../model/sqlCatalog'
 
 /**
  * Format de fichier Meriz : le modèle et ses positions, plus un champ
@@ -103,7 +104,9 @@ export function parseMpdSettings(raw: unknown): MpdSettings | null {
   }
   const identity: Record<string, boolean> = {}
   if (isRecord(raw.identity)) for (const [key, value] of Object.entries(raw.identity)) if (typeof value === 'boolean') identity[key] = value
-  return { dialect: raw.dialect, overrides, ...(Object.keys(identity).length ? { identity } : {}) }
+  // Une version inconnue, par exemple d'une version future de Meriz, retombe sur le défaut du moteur.
+  const version = typeof raw.version === 'string' && isKnownVersion(raw.dialect, raw.version) ? raw.version : undefined
+  return { dialect: raw.dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}) }
 }
 
 function isAttributeType(value: unknown): boolean {

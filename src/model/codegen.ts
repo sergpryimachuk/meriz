@@ -26,7 +26,7 @@ export function generateFiles(
   settings: MpdSettings,
 ): GeneratedFile[] {
   const schema = buildCodeSchema(mcd, tables, settings)
-  const issues = physicalSchemaIssues(schema.physicalTables, settings.dialect)
+  const issues = physicalSchemaIssues(schema.physicalTables, settings.dialect, settings.version)
   if (issues.length) throw new Error(issues.join('\n'))
   return framework === 'laravel' ? laravelFiles(schema) : symfonyFiles(schema, settings.dialect)
 }

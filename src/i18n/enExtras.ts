@@ -365,5 +365,14 @@ export const englishExtras: Readonly<Record<string, string>> = {
   "Les espaces et leurs contenus sont conservés. Les archives restent accessibles depuis leur onglet.": "Workspaces and their contents are kept. Archived collections remain accessible from the Archived tab.",
   "Retrouvez vos groupes et organisez vos espaces de collaboration.": "Find your groups and organise your shared workspaces.",
   "Navigation des groupes": "Group navigation",
-  "Aucun groupe pour l’instant. Utilisez les onglets Créer ou Rejoindre pour commencer.": "No groups yet. Use the Create or Join tab to get started."
+  "Aucun groupe pour l’instant. Utilisez les onglets Créer ou Rejoindre pour commencer.": "No groups yet. Use the Create or Join tab to get started.",
+  "devient": "becomes",
+  "Passer à {0} ?": "Switch to {0}?",
+  "Types adaptés : {0}": "Adapted types: {0}",
+  "Ces colonnes prennent le nom équivalent du moteur choisi.": "These columns take the equivalent name in the chosen engine.",
+  "Décisions à prendre : {0}": "Decisions needed: {0}",
+  "Ces types n’existent pas dans {0}. Choisissez un autre type avant l’export.": "These types do not exist in {0}. Choose another type before exporting.",
+  "Changer de moteur": "Change engine",
+  "Version": "Version",
+  "{0} (fin de support)": "{0} (end of life)"
 }

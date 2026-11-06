@@ -1,4 +1,5 @@
 import { Select } from './ui/Select'
+import { EngineSelect } from './EngineSelect'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { Dispatch, DragEvent } from 'react'
 import type { Mcd, Property } from '../model/mcd'
@@ -24,7 +25,7 @@ const control = 'min-h-8 min-w-0 max-w-full rounded-lg border border-transparent
 /** Tableau compact : les porteurs restent distincts et le document partagé reste inchangé. */
 export function DictionaryView({ mcd, dispatch, readOnly = false }: { mcd: Mcd; dispatch: Dispatch<McdAction>; readOnly?: boolean }) {
   const locale = useLanguage(), toast = useToast()
-  const { settings, physicalType, beginner } = useSqlTypes()
+  const { settings, physicalType, beginner, requestTarget } = useSqlTypes()
   const [tab, setTab] = useState<DictionaryTab>('tables')
   const [search, setSearch] = useState(''), [sort, setSort] = useState('placement')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -106,7 +107,7 @@ export function DictionaryView({ mcd, dispatch, readOnly = false }: { mcd: Mcd; 
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2">
       <label className="flex min-w-0 max-w-sm basis-48 flex-1 items-center gap-2 text-xs">{t('Rechercher')}<input type="search" value={search} onChange={e => setSearch(e.target.value)} className="min-h-8 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-2 py-1" /></label>
       <label className="flex min-w-0 items-center gap-2 text-xs">{t('Trier')}<Select className={control + ' border-line-strong bg-surface'} value={sort} onValueChange={value => setSort(value)}><option value="placement">{t('Ordre du modèle')}</option><option value="name">{t('Nom')}</option><option value="type">{t('Type SQL')}</option></Select></label>
-      {!beginner && <label className="flex min-w-0 items-center gap-2 text-xs lg:ml-auto">{t('Moteur SQL')}<Select disabled={readOnly} value={settings.dialect} onValueChange={value => dispatch({ type: 'SET_DIALECT', dialect: value === 'postgresql' ? 'postgresql' : 'mysql' })} className={control + ' border-line-strong bg-surface'}><option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option></Select></label>}
+      {!beginner && <div className="min-w-0 lg:ml-auto"><EngineSelect dialect={settings.dialect} version={settings.version} disabled={readOnly || !requestTarget} onChange={(dialect, version) => requestTarget?.(dialect, version)} className={control + ' border-line-strong bg-surface'} /></div>}
     </div>
     <div className="min-h-0 min-w-0 flex-1 overflow-auto p-3 sm:p-4" data-dictionary-scroll>
       {tab === 'associations' && <p className="mb-3 text-xs leading-relaxed text-ink-soft">{t('Propriétés portées par les associations. Les associations sans propriété et leurs liaisons restent dans le MCD.')}</p>}

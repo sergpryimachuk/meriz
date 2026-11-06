@@ -1,4 +1,3 @@
-import { Select } from './ui/Select'
 import { SqlTypeControl } from './SqlTypeControl'
 import { t } from "../i18n/runtime"
 import { useLanguage } from "../lib/useLanguage"
@@ -6,7 +5,7 @@ import { Fragment, useCallback, useEffect, useId, useMemo, useState } from 'reac
 import { applyNodeChanges, Background, Panel, ReactFlow, ReactFlowProvider } from '@xyflow/react'
 import type { NodeChange } from '@xyflow/react'
 import type { MpdSettings, MpdTable, SqlDialect } from '../model/mpd'
-import { SQL_DIALECTS } from '../model/mpd'
+import { EngineSelect } from './EngineSelect'
 import { ARIA_LABELS } from '../canvas/ariaLabels'
 import { TableNode } from '../canvas/TableNode'
 import type { TableFlowNode } from '../canvas/TableNode'
@@ -22,7 +21,7 @@ interface MpdViewProps {
   hasErrors: boolean
   settings: MpdSettings
   readOnly?: boolean
-  onDialectChange: (dialect: SqlDialect) => void
+  onTargetChange: (dialect: SqlDialect, version: string) => void
   onOverrideChange: (columnId: string, value: string) => void
   /**
    * Comme la vue MCD, la vue reste montée quand elle est inactive,
@@ -42,12 +41,11 @@ export function MpdView({
   hasErrors,
   settings,
   readOnly = false,
-  onDialectChange,
+  onTargetChange,
   onOverrideChange,
   isActive,
 }: MpdViewProps) {
   useLanguage()
-  const dialectSelectId = useId()
   const mappingPanelId = useId()
   const [mappingOpen, setMappingOpen] = useState(true)
   const visibilityClass = isActive ? 'flex min-h-0 flex-1 flex-col' : 'hidden'
@@ -74,21 +72,13 @@ export function MpdView({
   return (
     <section aria-label={t("Vue MPD")} className={visibilityClass}>
       <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-2">
-        <label htmlFor={dialectSelectId} className="text-xs font-medium text-ink-soft">
-          {t("Dialecte SQL")}</label>
-        <Select
-          id={dialectSelectId}
-          value={settings.dialect}
+        <EngineSelect
+          dialect={settings.dialect}
+          version={settings.version}
           disabled={readOnly}
-          onValueChange={value => onDialectChange(value as SqlDialect)}
+          onChange={onTargetChange}
           className="rounded-lg border border-line-strong px-1.5 py-1 font-mono text-xs"
-        >
-          {SQL_DIALECTS.map((dialect) => (
-            <option key={dialect.id} value={dialect.id}>
-              {dialect.label}
-            </option>
-          ))}
-        </Select>
+        />
         <Button
           size="sm"
           aria-expanded={mappingOpen}

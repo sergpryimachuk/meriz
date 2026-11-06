@@ -1,6 +1,7 @@
 import { parseSqlType, conceptualTypeFor } from './sqlTypes'
 import type { MpdSettings, SqlDialect } from './mpd'
 import { DEFAULT_MPD_SETTINGS } from './mpd'
+import { resolveVersion } from './sqlCatalog'
 import { t } from "../i18n/runtime"
 import type {
   Association,
@@ -53,7 +54,8 @@ export type McdAction =
   | { type: 'RENAME_ENTITY'; id: string; name: string }
   | { type: 'RENAME_ASSOCIATION'; id: string; name: string }
   // Dictionnaire central : la propriété est définie une seule fois.
-  | { type: 'SET_DIALECT'; dialect: SqlDialect }
+  /** Change de moteur ; sans version, prend la version par défaut du nouveau moteur. */
+  | { type: 'SET_DIALECT'; dialect: SqlDialect; version?: string }
   | { type: 'SET_SQL_TYPE'; propertyId: string; value: string }
   | { type: 'SET_IDENTITY'; propertyId: string; value: boolean }
   | { type: 'MOVE_PROPERTY'; propertyId: string; ownerId: string | null; beforeId?: string }
@@ -149,7 +151,7 @@ function withLeg(
 
 function reduceModel(state: McdEditorState, action: McdAction): McdEditorState {
   switch (action.type) {
-    case 'SET_DIALECT': return { ...state, mpd: { ...(state.mpd ?? DEFAULT_MPD_SETTINGS), dialect: action.dialect } }
+    case 'SET_DIALECT': return { ...state, mpd: { ...(state.mpd ?? DEFAULT_MPD_SETTINGS), dialect: action.dialect, version: resolveVersion(action.dialect, action.version) } }
     case 'SET_SQL_TYPE': {
       const settings = state.mpd ?? DEFAULT_MPD_SETTINGS
       const overrides = { ...settings.overrides }
