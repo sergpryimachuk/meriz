@@ -1,13 +1,18 @@
 import type { SqlDialect } from '../mpd'
+import { MARIADB_CATALOG } from './mariadb'
 import { MYSQL_CATALOG } from './mysql'
 import { POSTGRES_CATALOG } from './postgresql'
 import type { ColumnDefault, EngineCatalog, SqlTypeDefinition } from './types'
 
 export type { ColumnDefault, EngineCatalog, EngineVersion, SqlTypeDefinition, SqlTypeFamily, SqlTypeParameters } from './types'
+export { MARIADB_TYPE_DEFINITIONS } from './mariadb'
 export { MYSQL_TYPE_DEFINITIONS } from './mysql'
 export { POSTGRES_TYPE_DEFINITIONS } from './postgresql'
 
-const CATALOGS: Readonly<Record<SqlDialect, EngineCatalog>> = { mysql: MYSQL_CATALOG, postgresql: POSTGRES_CATALOG }
+const CATALOGS: Readonly<Record<SqlDialect, EngineCatalog>> = { mysql: MYSQL_CATALOG, mariadb: MARIADB_CATALOG, postgresql: POSTGRES_CATALOG }
+
+/** MySQL et MariaDB partagent la syntaxe : accents graves, AUTO_INCREMENT, DROP FOREIGN KEY. */
+export const usesMysqlSyntax = (dialect: SqlDialect): boolean => dialect === 'mysql' || dialect === 'mariadb'
 
 export const catalogFor = (dialect: SqlDialect): EngineCatalog => CATALOGS[dialect]
 

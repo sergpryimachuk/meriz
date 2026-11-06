@@ -3,6 +3,7 @@ import type { SqlDialect } from './mpd'
 import type { SchemaColumn } from './codeSchema'
 import { phpString, phpStringList } from './php'
 import { t } from '../i18n/runtime'
+import { usesMysqlSyntax } from './sqlCatalog'
 
 export function columnSqlSpec(column: SchemaColumn) {
   const spec = parseSqlType(column.sqlType)
@@ -40,7 +41,7 @@ export function blueprintColumn(column: SchemaColumn): string {
     case 'INET': call = `ipAddress(${name})`; break
     case 'MACADDR': call = `macAddress(${name})`; break
     // Sans méthode Blueprint portable : le type validé est écrit tel quel.
-    case 'CIDR': case 'INTERVAL': case 'SET': case 'VECTOR': call = `rawColumn(${name}, ${phpString(formatSqlType(spec))})`; break
+    case 'CIDR': case 'INTERVAL': case 'SET': case 'VECTOR': case 'INET4': case 'INET6': call = `rawColumn(${name}, ${phpString(formatSqlType(spec))})`; break
     case 'BINARY': call = `binary(${name}, length: ${spec.length}, fixed: true)`; break
     case 'JSON': call = `json(${name})`; break
     case 'JSONB': call = `jsonb(${name})`; break
@@ -58,7 +59,7 @@ function laravelDefault(sql: string | undefined): string {
   return `->default(new \\Illuminate\\Database\\Query\\Expression(${phpString(sql)}))`
 }
 
-const NATIVE_DEFINITION: readonly string[] = ['TINYINT', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'MEDIUMINT', 'YEAR', 'TIME WITH TIME ZONE', 'INTERVAL', 'INET', 'CIDR', 'MACADDR', 'SET', 'VECTOR']
+const NATIVE_DEFINITION: readonly string[] = ['TINYINT', 'TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'MEDIUMINT', 'YEAR', 'TIME WITH TIME ZONE', 'INTERVAL', 'INET', 'INET4', 'INET6', 'CIDR', 'MACADDR', 'SET', 'VECTOR']
 
 export interface DoctrineColumnFormat { attribute: string; phpType: string; needsTypes: boolean }
 export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysql'): DoctrineColumnFormat {
@@ -66,14 +67,14 @@ export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysq
   let type: string, phpType: string, parameters: string[] = []
   switch (spec.name) {
     case 'VARCHAR': case 'CHAR': type = 'STRING'; phpType = 'string'; parameters.push(`length: ${spec.length}`); break
-    case 'TEXT': type = 'TEXT'; phpType = 'string'; if (dialect === 'mysql') parameters.push('length: 65535'); break
+    case 'TEXT': type = 'TEXT'; phpType = 'string'; if (usesMysqlSyntax(dialect)) parameters.push('length: 65535'); break
     // DBAL choisit MEDIUMTEXT ou LONGTEXT selon la longueur demandée.
     case 'MEDIUMTEXT': type = 'TEXT'; phpType = 'string'; parameters.push('length: 16777215'); break
     case 'LONGTEXT': type = 'TEXT'; phpType = 'string'; parameters.push('length: 4294967295'); break
     case 'MEDIUMINT': type = 'INTEGER'; phpType = 'int'; break
     case 'YEAR': type = 'SMALLINT'; phpType = 'int'; break
     case 'TIME WITH TIME ZONE': type = 'TIME_MUTABLE'; phpType = '\\DateTimeInterface'; break
-    case 'INTERVAL': case 'INET': case 'CIDR': case 'MACADDR': case 'SET': case 'VECTOR': type = 'STRING'; phpType = 'string'; break
+    case 'INTERVAL': case 'INET': case 'INET4': case 'INET6': case 'CIDR': case 'MACADDR': case 'SET': case 'VECTOR': type = 'STRING'; phpType = 'string'; break
     case 'BINARY': type = 'BINARY'; phpType = 'string'; parameters.push(`length: ${spec.length}`); break
     case 'INT': case 'INTEGER': type = 'INTEGER'; phpType = 'int'; break
     case 'BIGINT': type = 'BIGINT'; phpType = 'int|string'; break
@@ -101,7 +102,8 @@ export function doctrineColumn(column: SchemaColumn, dialect: SqlDialect = 'mysq
   if (options.length) parameters.push(`options: [${options.join(', ')}]`)
   // Ces types natifs n'ont pas une correspondance portable univoque dans DBAL.
   // Une valeur par défaut calculée passe aussi par la définition native.
-  if (NATIVE_DEFINITION.includes(spec.name) || column.defaultSql) parameters.push(`columnDefinition: ${phpString(column.sqlType + (column.nullable ? '' : ' NOT NULL') + (column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''))}`)
+  // UUID natif de MariaDB : DBAL ne le distingue pas d'un GUID en CHAR(36).
+  if (NATIVE_DEFINITION.includes(spec.name) || column.defaultSql || (dialect === 'mariadb' && spec.name === 'UUID')) parameters.push(`columnDefinition: ${phpString(column.sqlType + (column.nullable ? '' : ' NOT NULL') + (column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''))}`)
   return { attribute: [`type: Types::${type}`, ...parameters].join(', '), phpType, needsTypes: true }
 }
 

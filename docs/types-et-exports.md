@@ -30,6 +30,8 @@ Le moteur se choisit avec sa version : MySQL 5.7, 8.0, 8.4 LTS ou 9.x, PostgreSQ
 
 MySQL n'a pas de type UUID. BINARY(16) ou CHAR(36) servent à le stocker.
 
+MariaDB 10.6, 10.11, 11.4, 11.8 et 12.3 reprend les types MySQL, avec ces écarts : UUID depuis 10.7, INET6, INET4 depuis 10.10, et VECTOR depuis 11.7. Le SQL suit la syntaxe MySQL.
+
 ### Valeurs par défaut
 
 Certains types proposent une valeur par défaut calculée par la base. Le choix se fait dans une liste, jamais en saisissant du SQL.
@@ -37,8 +39,9 @@ Certains types proposent une valeur par défaut calculée par la base. Le choix 
 | Type | MySQL | PostgreSQL |
 |---|---|---|
 | UUID | | gen_random_uuid(), uuidv7() en 18 |
+| UUID, MariaDB | (UUID_v4()), (UUID_v7()), depuis 11.7 | |
 | DATETIME, TIMESTAMP | CURRENT_TIMESTAMP | CURRENT_TIMESTAMP |
-| DATE | (CURRENT_DATE), depuis 8.0.13 | CURRENT_DATE |
+| DATE | (CURRENT_DATE), depuis MySQL 8.0.13, pas sous MariaDB | CURRENT_DATE |
 
 Une clé étrangère reprend le type de l'identifiant visé, pas sa valeur par défaut. Une valeur absente du moteur ou de la version choisie est signalée et bloque l'export. Doctrine ne compare pas ces valeurs : Meriz le signale pour le parcours automatique.
 

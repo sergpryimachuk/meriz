@@ -12,6 +12,7 @@ import { ATTRIBUTE_TYPES } from '../model/mcd'
 import type { McdLayout, Position } from '../model/layout'
 import type { McdEditorState } from '../model/mcdReducer'
 import type { MpdSettings } from '../model/mpd'
+import { SQL_DIALECTS } from '../model/mpd'
 import { isKnownVersion } from '../model/sqlCatalog'
 
 /**
@@ -91,9 +92,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Contrôle de forme des réglages MPD : dialecte connu, surcharges texte. */
 export function parseMpdSettings(raw: unknown): MpdSettings | null {
-  if (!isRecord(raw) || (raw.dialect !== 'mysql' && raw.dialect !== 'postgresql')) {
+  if (!isRecord(raw) || !SQL_DIALECTS.some(dialect => dialect.id === raw.dialect)) {
     return null
   }
+  const dialect = SQL_DIALECTS.find(known => known.id === raw.dialect)!.id
   const overrides: Record<string, string> = {}
   if (isRecord(raw.overrides)) {
     for (const [key, value] of Object.entries(raw.overrides)) {
@@ -108,8 +110,8 @@ export function parseMpdSettings(raw: unknown): MpdSettings | null {
   const defaults: Record<string, string> = {}
   if (isRecord(raw.defaults)) for (const [key, value] of Object.entries(raw.defaults)) if (typeof value === 'string' && /^[a-z0-9_]{1,40}$/.test(value)) defaults[key] = value
   // Une version inconnue, par exemple d'une version future de Meriz, retombe sur le défaut du moteur.
-  const version = typeof raw.version === 'string' && isKnownVersion(raw.dialect, raw.version) ? raw.version : undefined
-  return { dialect: raw.dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
+  const version = typeof raw.version === 'string' && isKnownVersion(dialect, raw.version) ? raw.version : undefined
+  return { dialect, ...(version ? { version } : {}), overrides, ...(Object.keys(identity).length ? { identity } : {}), ...(Object.keys(defaults).length ? { defaults } : {}) }
 }
 
 function isAttributeType(value: unknown): boolean {

@@ -5,7 +5,7 @@ import { t } from "../i18n/runtime"
 import type { AttributeType } from './mcd'
 import type { MldColumn, MldTable } from './mld'
 import { sanitizeSqlName } from './sql'
-import { catalogFor, defaultsFor } from './sqlCatalog'
+import { catalogFor, defaultsFor, usesMysqlSyntax } from './sqlCatalog'
 
 /**
  * MPD : le modèle physique. Structure dérivée du MLD (jamais éditée),
@@ -14,10 +14,11 @@ import { catalogFor, defaultsFor } from './sqlCatalog'
  * seulement ici, que les types conceptuels deviennent des types SQL.
  */
 
-export type SqlDialect = 'mysql' | 'postgresql'
+export type SqlDialect = 'mysql' | 'mariadb' | 'postgresql'
 
 export const SQL_DIALECTS: readonly { id: SqlDialect; label: string }[] = [
   { id: 'mysql', get label() { return t("MySQL") } },
+  { id: 'mariadb', get label() { return t("MariaDB") } },
   { id: 'postgresql', get label() { return t("PostgreSQL") } },
 ]
 
@@ -177,7 +178,7 @@ export function mpdToSql(tables: MpdTable[], dialect: SqlDialect, options: SqlOp
         typePart = column.sqlType === 'BIGINT' ? 'BIGSERIAL' : column.sqlType === 'SMALLINT' ? 'SMALLSERIAL' : 'SERIAL'
       }
       const autoIncrementPart =
-        column.autoIncrement && dialect === 'mysql' ? ' AUTO_INCREMENT' : ''
+        column.autoIncrement && usesMysqlSyntax(dialect) ? ' AUTO_INCREMENT' : ''
       const nullability = column.nullable ? '' : ' NOT NULL'
       const defaultPart = column.defaultSql ? ' DEFAULT ' + column.defaultSql : ''
       lines.push(`  ${quoteSqlName(column.name, dialect)} ${typePart}${nullability}${defaultPart}${autoIncrementPart}`)

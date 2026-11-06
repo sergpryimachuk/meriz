@@ -42,7 +42,7 @@ On ne liste que les versions où le catalogue ou la génération change. Chaque 
 | Moteur | Versions | Ce qui change |
 |---|---|---|
 | MySQL | 5.7, 8.0, 8.4 LTS, 9.x | 5.7 : CHECK ignoré, pas de défaut par expression. 8.0.13 : `DEFAULT (UUID_TO_BIN(UUID()))`. 8.0.16 : CHECK appliqué. 9.0 : `VECTOR`. |
-| MariaDB | 10.6, 10.11, 11.4, 11.8 (toutes LTS) | 10.6 : pas d'UUID natif, INET6 présent. 10.7 : `UUID`. 10.10 : `INET4`. 11.7 : `VECTOR`, `UUID_v7()`. |
+| MariaDB | 10.6, 10.11 LTS, 11.4 LTS, 11.8 LTS, 12.3 | 10.6 : fin de support, pas d'UUID natif, INET6 présent. 10.7 : `UUID`. 10.10 : `INET4`. 11.7 : `VECTOR`, `UUID_v4()`, `UUID_v7()`. |
 | PostgreSQL | 14, 15, 16, 17, 18 | Types stables. 18 : `uuidv7()` pour les défauts. Les multiranges existent depuis 14. |
 | SQLite | 3.37+ STRICT, classique | STRICT limite les types à INT, INTEGER, REAL, TEXT, BLOB, ANY. Le mode classique accepte tout nom, avec affinité. |
 
@@ -119,7 +119,7 @@ Règle retenue : UUID est un type du catalogue seulement là où le moteur l'a e
 | Moteur | UUID | Défaut proposé |
 |---|---|---|
 | PostgreSQL | `UUID` natif | `gen_random_uuid()`, ou `uuidv7()` en 18 |
-| MariaDB 10.7+ | `UUID` natif | `UUID()`, ou `UUID_v7()` en 11.7+ |
+| MariaDB 10.7+ | `UUID` natif | `(UUID_v4())` ou `(UUID_v7())` en 11.7+. `UUID()` n'est pas proposé : la documentation ne le montre pas en DEFAULT. |
 | MariaDB 10.6 | absent | aucun |
 | MySQL | absent | aucun |
 | SQLite | absent | aucun |
